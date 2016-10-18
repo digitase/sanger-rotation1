@@ -55,5 +55,6 @@ write.table(
     file=out.failure.file, 
     sep="\t", 
     quote=F, 
-    row.names=F, col.names=F
+    row.names=F
 )
+
