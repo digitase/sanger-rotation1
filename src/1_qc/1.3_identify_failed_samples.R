@@ -1,14 +1,32 @@
+#
+# Identify and output samples that fail any QC checks.
+#
 
 library(plyr)
 
 options(stringsAsFactors = F)
 
-in.imiss.file <- commandArgs(T)[1]
-in.het.file <- commandArgs(T)[2]
-in.imiss.thresh <- as.numeric(commandArgs(T)[3])
-in.het.thresh <- as.numeric(commandArgs(T)[4])
-out.pdf.file <- commandArgs(T)[5]
-out.failedIds.file <- commandArgs(T)[6]
+# print("Args:")
+# print(commandArgs(T))
+
+# Input files
+in.fam.orig.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc1.fam"
+
+in.imiss.fails.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc2.sample_fail_imiss.txt"
+in.het.fails.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc2.sample_fail_het.txt"
+in.sexcheck.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.check_sex.sexcheck"
+in.pca.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.pruned.hapmap_merged.flipped.pca.evec"
+in.hapmap.fam.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.pruned.hapmap_merged.flipped.fam"
+
+in.king.ibs0.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.maf_0.05.king.ibs0"
+in.imiss.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc1.imiss"
+
+in.pc2.thresh <- as.numeric(0.066)
+in.kinship.thresh <- as.numeric(0.177)
+
+out.summary.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.summary.txt"
+out.summaryTable.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.summary_table.txt"
+out.failedIds.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.sample_fail_any.txt"
 
 #
 # Identify samples failing missingness filter
@@ -16,16 +34,12 @@ out.failedIds.file <- commandArgs(T)[6]
 #
 
 # Read in previously identified individuals
-in.imiss.fails.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc2.sample_fail_imiss.txt"
-in.het.fails.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc2.sample_fail_het.txt"
-
 in.imiss.fails.df <- read.table(in.imiss.fails.file)
 in.het.fails.df <- read.table(in.het.fails.file)
 
 #
 # Identify samples with discordant sex information
 #
-in.sexcheck.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.check_sex.sexcheck"
 in.sexcheck.df <- read.table(in.sexcheck.file, header = T)
 
 # Account for known plate-swap:
@@ -52,13 +66,10 @@ in.sexcheck.df <- within(in.sexcheck.df, {
 # 
 # Identify individuals with non-European ancestry
 #
-
-in.pca.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.pruned.hapmap_merged.flipped.pca.evec"
 in.pca.df <- read.table(in.pca.file, skip = 1)
 colnames(in.pca.df) <- c("SAMPLE", "PC1", "PC2", "POP")
 
-# Restore original sample IDs
-in.hapmap.fam.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.pruned.hapmap_merged.flipped.fam"
+# Unshorten sample IDs
 in.hapmap.fam.df <- read.table(in.hapmap.fam.file)
 
 stopifnot(nrow(in.pca.df) == nrow(in.hapmap.fam.df))
@@ -66,7 +77,6 @@ in.pca.df$FID <- in.hapmap.fam.df$V1
 in.pca.df$IID <- in.hapmap.fam.df$V2
 
 # Identify failures based on PC2 coord
-in.pc2.thresh <- as.numeric(0.066)
 in.pca.df$ANCESTRY.FAIL <- in.pca.df$PC2 < in.pc2.thresh
 
 #
@@ -75,7 +85,6 @@ in.pca.df$ANCESTRY.FAIL <- in.pca.df$PC2 < in.pc2.thresh
 
 # Read in all original samples
 # This is the fam file after qc1, which removed markers with excess missingness
-in.fam.orig.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc1.fam"
 in.fam.orig.df <- read.table(in.fam.orig.file)
 
 # Add QC failures
@@ -96,12 +105,9 @@ failures.summary$ANCESTRY.FAIL[failures.summary$IID %in% in.pca.df$IID[in.pca.df
 # 
 # Identify duplicated and highly related individuals
 #
-
-in.king.ibs0.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.maf_0.05.king.ibs0"
 in.king.ibs0.df <- read.table(in.king.ibs0.file, header = T)
 
 # Read in sample call rates
-in.imiss.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc1.imiss"
 in.imiss.df <- read.table(in.imiss.file, header=T)
 
 # For each related pair, if both members passed other QC, mark the member with the lower call rate.
@@ -130,7 +136,6 @@ process.related.pair <- function(x, kinship.thresh, failures.summary, in.imiss.d
     }
 }
 
-in.kinship.thresh <- as.numeric(0.177)
 pair.failures <- aaply(in.king.ibs0.df, 1, process.related.pair, in.kinship.thresh, failures.summary, in.imiss.df, .expand=F)
 
 failures.summary$RELATEDNESS.FAIL <- F
@@ -142,16 +147,13 @@ failures.summary <- within(failures.summary, {
     ANY.FAIL <- IMISS.FAIL | HET.FAIL | CHECKSEX.FAIL | ANCESTRY.FAIL | RELATEDNESS.FAIL
 })
 
-out.summary.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.summary.txt"
 sink(out.summary.file)
 print(summary(failures.summary))
 sink()
 
-out.summaryTable.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.summary_table.txt"
 write.table(failures.summary, out.summaryTable.file)
 
 # Write list of failed ids to remove
-out.failedIds.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.sample_fail_any.txt"
 write.table(
     failures.summary[failures.summary$ANY.FAIL, c("FID", "IID")],
     file = out.failedIds.file, 

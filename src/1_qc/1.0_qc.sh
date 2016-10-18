@@ -45,7 +45,7 @@ plink --noweb \
 #
 # 2.
 # Remove samples based on missingness.
-# Identify samples with excess heterozygosity.
+# also Identify samples with excess heterozygosity.
 #
 # The genotype failure rate and heterozygosity rate per individual are both measures of DNA sample quality.
 # These two filters are independent, as they only consider info relevant to each a sample.
@@ -68,12 +68,13 @@ Rscript "1.1_plot_imiss_vs_het.R" \
     "$MAX_SAMPLE_MISSINGNESS" \
     "$MAX_HET_RATE_SD_THRESH" \
     "$OUT_DIR/$IN_DATA_PREFIX.qc2.pdf" \
-    "$OUT_DIR/$IN_DATA_PREFIX.qc2.sample_fail_missingness_het.txt"
+    "$OUT_DIR/$IN_DATA_PREFIX.qc2.sample_fail_imiss.txt" \
+    "$OUT_DIR/$IN_DATA_PREFIX.qc2.sample_fail_het.txt"
 
 # Remove samples failing missingness check
 plink --noweb \
     --bfile "$OUT_DIR/$IN_DATA_PREFIX.qc1" \
-    --mind "$MAX_SAMPLE_MISSINGNESS" \
+    --remove "$OUT_DIR/$IN_DATA_PREFIX.qc2.sample_fail_imiss.txt" \
     --make-bed \
     --out "$OUT_DIR/$IN_DATA_PREFIX.qc3" 
 
@@ -169,6 +170,8 @@ plink --noweb \
     --out "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped"
 
 # Shorten family/sample ids in fam file, as smartpca has a max length limit
+    # -v map="$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.id_to_short_id.mappings" \
+    # '{print "ID" NR FS $1 >> map; print "ID" NR FS "ID" NR FS $3 FS $4 FS $5 FS $6 >> fam}' \
 awk \
     -v fam="$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.short_id.fam" \
     '{print "ID" NR FS "ID" NR FS $3 FS $4 FS $5 FS $6 >> fam}' \
@@ -183,7 +186,7 @@ ln -s "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.short_id.fam" "
 # Run smartpca perl script version. smartpca must be in $PATH
 #
 # -i, -a, -b specify input genotype, snp and indiv files
-# -o, -p, -e, -l specify output file names
+# -o, -e, -l specify output file names
 # -k    number of eigenvectors to output
 # -t    number of principal components along which to remove outliers during each outlier removal iteration
 # -w    If wishing to infer eigenvectors using only individuals from a 
@@ -198,7 +201,6 @@ perl "$HOME/packages/eigensoft/bin/smartpca.perl" \
     -a "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.pedsnp" \
     -b "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.pedind" \
     -o "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.pca" \
-    -p "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.plot" \
     -e "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.eval" \
     -l "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.log" \
     -k 2 -t 2 \
@@ -208,25 +210,26 @@ perl "$HOME/packages/eigensoft/bin/smartpca.perl" \
 MIN_PC2="0.066"
 Rscript "1.2_plot-pca-results_alpha.R" "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.pca" "$MIN_PC2"
 
-# Remove samples failing QC
+# Remove samples failing any QC checks:
+#   Samples with excess missingness have already been removed.
+#   Remove samples with excess heterozygosity, 
+#   discordant sex (accounting for known mishaps i.e. plate swap),
+#   non-European ancestry.
+#   For each pair of samples that are first degree relatives (kinship coefficient > 0.177) or closer,
+#   where both samples pass other QC checks, 
+#   remove the individual with the lower call rate.
+#   See http://people.virginia.edu/~wc9c/KING/manual.html for info on thresholds on kinship.
 
-# Mark individuals with mismatched gender.
-# Mark one of each pair of individuals that are first degree relatives (kinship coefficient > 0.177) or closer: the individual with the lower call rate.
-# See http://people.virginia.edu/~wc9c/KING/manual.html for thresholds.
+Rscript "1.3_identify_failed_samples.R"
+
+plink --noweb \
+    --bfile "$OUT_DIR/$IN_DATA_PREFIX.qc3" \
+    --remove "$OUT_DIR/$IN_DATA_PREFIX.qc3.sample_fail_any.txt" \
+    --make-bed \
+    --out "$OUT_DIR/$IN_DATA_PREFIX.qc4" 
 
 # TODO nothing below here works
 exit
-
-# 1) All those with non-European ancestry (PC1)
-cat /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/3_sample_QC/coreex_gaibdc_usgwas_qc2.fail-ancestry.txt > /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/3_sample_QC/sample_QC_fail.samples
-# 2) All with heterozygosity rate more than 3s from the mean
-cat /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/3_sample_QC/coreex_gaibdc_usgwas_qc2.fail-het-QC.txt >> /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/3_sample_QC/sample_QC_fail.samples
-# 3) All duplicates or 1st-degree relatives
-cat /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/3_sample_QC/coreex_gaibdc_usgwas_qc2.duplicates_to_remove | awk '{print $1 "\t" $2}' >> /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/3_sample_QC/sample_QC_fail.samples
-cat /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/3_sample_QC/coreex_gaibdc_usgwas_qc2.first_degree_to_remove | awk '{print $1 "\t" $2}' >> /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/3_sample_QC/sample_QC_fail.samples
-# 4) All gender mismatches (except those from the known plate-swap)
-cat /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/3_sample_QC/fail-gender.txt >> /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/3_sample_QC/sample_QC_fail.samples
-# 5) Those with elevated missing rates have already been removed.
 
 
 

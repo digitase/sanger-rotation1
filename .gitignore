@@ -2,3 +2,5 @@ crohns_workspace
 data
 *.swp
 *.swo
+*.Rdata
+*.Rhistory

@@ -6,7 +6,8 @@ in.het.file <- commandArgs(T)[2]
 in.imiss.thresh <- as.numeric(commandArgs(T)[3])
 in.het.thresh <- as.numeric(commandArgs(T)[4])
 out.pdf.file <- commandArgs(T)[5]
-out.failure.file <- commandArgs(T)[6]
+out.imiss.failure.file <- commandArgs(T)[6]
+out.het.failure.file <- commandArgs(T)[7]
 
 # in.imiss.file <- "output/coreex_gaibdc_usgwas_raw.qc2.imiss"
 # in.het.file <- "output/coreex_gaibdc_usgwas_raw.qc2.het"
@@ -39,7 +40,7 @@ pdf(out.pdf.file)
         scale_x_log10()
 dev.off()
 
-# Write list of failures
+# Write lists of failures
 merged.imiss.het.df <- merge(imiss.df, het.df)
 merged.imiss.het.df <- within(merged.imiss.het.df, {
    IMISS.FAIL <- F_MISS > in.imiss.thresh 
@@ -51,10 +52,18 @@ print(paste(sum(merged.imiss.het.df$HET.FAIL), "samples failed heterozygosity ra
 print(paste(sum(merged.imiss.het.df$IMISS.FAIL | merged.imiss.het.df$HET.FAIL), "samples failed at least one filter."))
 
 write.table(
-    merged.imiss.het.df[merged.imiss.het.df$IMISS.FAIL | merged.imiss.het.df$HET.FAIL, c("FID", "IID", "HET.FAIL", "IMISS.FAIL")], 
-    file=out.failure.file, 
+    merged.imiss.het.df[merged.imiss.het.df$IMISS.FAIL, c("FID", "IID")], 
+    file=out.imiss.failure.file, 
     sep="\t", 
     quote=F, 
-    row.names=F
+    row.names=F, col.names=F
+)
+
+write.table(
+    merged.imiss.het.df[merged.imiss.het.df$HET.FAIL, c("FID", "IID")], 
+    file=out.het.failure.file, 
+    sep="\t", 
+    quote=F, 
+    row.names=F, col.names=F
 )
 
