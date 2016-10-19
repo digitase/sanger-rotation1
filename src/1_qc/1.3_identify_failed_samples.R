@@ -6,27 +6,46 @@ library(plyr)
 
 options(stringsAsFactors = F)
 
-# print("Args:")
-# print(commandArgs(T))
-
+#
 # Input files
-in.fam.orig.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc1.fam"
+#
 
-in.imiss.fails.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc2.sample_fail_imiss.txt"
-in.het.fails.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc2.sample_fail_het.txt"
-in.sexcheck.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.check_sex.sexcheck"
-in.pca.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.pruned.hapmap_merged.flipped.pca.evec"
-in.hapmap.fam.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.pruned.hapmap_merged.flipped.fam"
+print("Args:")
+print(commandArgs(T))
 
-in.king.ibs0.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.maf_0.05.king.ibs0"
-in.imiss.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc1.imiss"
+in.fam.orig.file <- commandArgs(T)[1]
+in.imiss.file <- commandArgs(T)[2]
 
-in.pc2.thresh <- as.numeric(0.066)
-in.kinship.thresh <- as.numeric(0.177)
+in.imiss.fails.file <- commandArgs(T)[3]
+in.het.fails.file <- commandArgs(T)[4]
+in.sexcheck.file <- commandArgs(T)[5]
+in.pca.file <- commandArgs(T)[6]
+in.hapmap.fam.file <- commandArgs(T)[7]
+in.king.ibs0.file <- commandArgs(T)[8]
 
-out.summary.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.summary.txt"
-out.summaryTable.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.summary_table.txt"
-out.failedIds.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.sample_fail_any.txt"
+in.pc2.thresh <- as.numeric(commandArgs(T)[9])
+in.kinship.thresh <- as.numeric(commandArgs(T)[10])
+
+out.summary.file <- commandArgs(T)[11]
+out.summaryTable.file <- commandArgs(T)[12]
+out.failedIds.file <- commandArgs(T)[13]
+
+# in.fam.orig.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc1.fam"
+# in.imiss.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc1.imiss"
+# 
+# in.imiss.fails.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc2.sample_fail_imiss.txt"
+# in.het.fails.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc2.sample_fail_het.txt"
+# in.sexcheck.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.check_sex.sexcheck"
+# in.pca.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.pruned.hapmap_merged.flipped.pca.evec"
+# in.hapmap.fam.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.pruned.hapmap_merged.flipped.fam"
+# in.king.ibs0.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.maf_0.05.king.ibs0"
+# 
+# in.pc2.thresh <- as.numeric(0.066)
+# in.kinship.thresh <- as.numeric(0.177)
+# 
+# out.summary.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.summary.txt"
+# out.summaryTable.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.summary_table.txt"
+# out.failedIds.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.sample_fail_any.txt"
 
 #
 # Identify samples failing missingness filter

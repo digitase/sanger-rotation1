@@ -5,7 +5,7 @@
 # Modifications suggested by Katie de Lange.
 #
 
-# Set paths
+# Set paths and vars
 PLINK_DIR="/software/hgi/pkglocal/plink-1.90b3w/bin/"
 R_DIR="/software/R-3.3.0/bin/"
 
@@ -36,7 +36,7 @@ ln -s "$IN_DATA_DIR/$IN_DATA_PREFIX.fam" "$OUT_DIR/$IN_DATA_PREFIX.fam"
 #
 MAX_MARKER_MISSINGNESS="0.05"
 
-plink --noweb \
+plink \
     --bfile "$OUT_DIR/$IN_DATA_PREFIX" \
     --geno "$MAX_MARKER_MISSINGNESS" \
     --make-bed \
@@ -52,7 +52,7 @@ plink --noweb \
 #
 
 # Get sample missingness and heterozygosity rate
-plink --noweb \
+plink \
     --bfile "$OUT_DIR/$IN_DATA_PREFIX.qc1" \
     --missing \
     --het \
@@ -72,7 +72,7 @@ Rscript "1.1_plot_imiss_vs_het.R" \
     "$OUT_DIR/$IN_DATA_PREFIX.qc2.sample_fail_het.txt"
 
 # Remove samples failing missingness check
-plink --noweb \
+plink \
     --bfile "$OUT_DIR/$IN_DATA_PREFIX.qc1" \
     --remove "$OUT_DIR/$IN_DATA_PREFIX.qc2.sample_fail_imiss.txt" \
     --make-bed \
@@ -92,7 +92,7 @@ plink --noweb \
 # Calculate the mean homozygosity rate across X chromosome markers for each individual in the study.
 # When the homozygosity rate is more than 0.2 but less than 0.8 the genotype data is inconclusive regarding the sex of an individual and these are marked in column 4 with a 0.
 #
-plink --noweb \
+plink \
     --bfile "$OUT_DIR/$IN_DATA_PREFIX.qc3" \
     --check-sex \
     --out "$OUT_DIR/$IN_DATA_PREFIX.qc3.check_sex" 
@@ -100,7 +100,7 @@ plink --noweb \
 # Identification of duplicated or related individuals
 
 # First prune to sites with >5% freq to save time
-plink --noweb \
+plink \
     --bfile "$OUT_DIR/$IN_DATA_PREFIX.qc3" \
     --maf "0.05" \
     --make-bed \
@@ -109,13 +109,15 @@ plink --noweb \
 # Use KING for relationship inference 
 # using Identity By State up to and including third degree relatives
 # Runtime: approx 2-5h
+# Extra flag for farm use:
+    # -G team152 \
 
 bsub \
+    -K \
     -J "$IN_DATA_PREFIX.qc3.maf_0.05.king" \
     -R "select[mem>4000] rusage[mem=4000]" \
     -M 4000 \
     -o "$OUT_DIR/$IN_DATA_PREFIX.qc3.maf_0.05.king.log" \
-    -G team152 \
         "king \
             -b $OUT_DIR/$IN_DATA_PREFIX.qc3.maf_0.05.bed \
             --kinship --ibs \
@@ -129,21 +131,21 @@ HAPMAP3R2_MARKERS="/lustre/scratch113/teams/barrett/coreex_gaibdc/refs/hapmap3r2
 HAPMAP3R2_PREFIX="/lustre/scratch113/teams/barrett/coreex_gaibdc/refs/hapmap3r2_CEU.CHB.JPT.YRI.founders.no-at-cg-snps"
 
 # Extract hapmap markers from our dataset
-plink --noweb \
+plink \
     --bfile "$OUT_DIR/$IN_DATA_PREFIX.qc3" \
     --extract "$HAPMAP3R2_MARKERS" \
     --make-bed \
     --out "$OUT_DIR/$IN_DATA_PREFIX.qc3.hapmap_markers"
 
 # Prune SNPs so that no pair of SNPs (within a given number of base pairs) has an R2 value greater than a given threshold
-plink --noweb \
+plink \
     --bfile "$OUT_DIR/$IN_DATA_PREFIX.qc3" \
     --exclude "/lustre/scratch113/teams/barrett/coreex_gaibdc/refs/high-LD-regions.txt" \
     --range --indep-pairwise 50 5 "0.2" \
     --out "$OUT_DIR/$IN_DATA_PREFIX.qc3.prune_markers_by_ld"
 
 # Merge our samples and hapmap samples, keeping only the LD pruned markers.
-plink --noweb \
+plink \
     --bfile "$OUT_DIR/$IN_DATA_PREFIX.qc3.hapmap_markers" \
     --bmerge "$HAPMAP3R2_PREFIX.bed" "$HAPMAP3R2_PREFIX.bim" "$HAPMAP3R2_PREFIX.fam" \
     --allow-no-sex \
@@ -153,7 +155,7 @@ plink --noweb \
 
 # From the list of snps with strand problems caused by >2 alleles (listed in .missnp output of the merge), 
 # change their alleles by flipping their strands.
-plink --noweb \
+plink \
     --bfile "$OUT_DIR/$IN_DATA_PREFIX.qc3" \
     --extract "$HAPMAP3R2_MARKERS" \
     --flip "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged-merge.missnp" \
@@ -161,7 +163,7 @@ plink --noweb \
     --out "$OUT_DIR/$IN_DATA_PREFIX.qc3.hapmap_markers.flipped"
 
 # Repeat the merge with problematic markers flipped 
-plink --noweb \
+plink \
     --bfile "$OUT_DIR/$IN_DATA_PREFIX.qc3.hapmap_markers.flipped" \
     --bmerge "$HAPMAP3R2_PREFIX.bed" "$HAPMAP3R2_PREFIX.bim" "$HAPMAP3R2_PREFIX.fam" \
     --allow-no-sex \
@@ -186,7 +188,7 @@ ln -s "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.short_id.fam" "
 # Run smartpca perl script version. smartpca must be in $PATH
 #
 # -i, -a, -b specify input genotype, snp and indiv files
-# -o, -e, -l specify output file names
+# -o, -e, -p, -l specify output file names
 # -k    number of eigenvectors to output
 # -t    number of principal components along which to remove outliers during each outlier removal iteration
 # -w    If wishing to infer eigenvectors using only individuals from a 
@@ -202,13 +204,14 @@ perl "$HOME/packages/eigensoft/bin/smartpca.perl" \
     -b "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.pedind" \
     -o "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.pca" \
     -e "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.eval" \
+    -p "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.plot" \
     -l "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.log" \
     -k 2 -t 2 \
     -w "/lustre/scratch113/teams/barrett/coreex_gaibdc/refs/pca-populations.txt"
 
 # Choose a PC2 threshold to exclude samples of non-European ancestry
-MIN_PC2="0.066"
-Rscript "1.2_plot-pca-results_alpha.R" "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.pca" "$MIN_PC2"
+MIN_PC2_THRESH="0.066"
+Rscript "1.2_plot-pca-results_alpha.R" "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.pca" "$MIN_PC2_THRESH"
 
 # Remove samples failing any QC checks:
 #   Samples with excess missingness have already been removed.
@@ -219,10 +222,27 @@ Rscript "1.2_plot-pca-results_alpha.R" "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapm
 #   where both samples pass other QC checks, 
 #   remove the individual with the lower call rate.
 #   See http://people.virginia.edu/~wc9c/KING/manual.html for info on thresholds on kinship.
+#
+MAX_KINSHIP_THRESH="0.177"
 
-Rscript "1.3_identify_failed_samples.R"
+# Mark for removal
+Rscript "1.3_identify_failed_samples.R" \
+    "$OUT_DIR/$IN_DATA_PREFIX.qc1.fam" \
+    "$OUT_DIR/$IN_DATA_PREFIX.qc2.imiss" \
+    "$OUT_DIR/$IN_DATA_PREFIX.qc2.sample_fail_imiss.txt" \
+    "$OUT_DIR/$IN_DATA_PREFIX.qc2.sample_fail_het.txt" \
+    "$OUT_DIR/$IN_DATA_PREFIX.qc3.check_sex.sexcheck" \
+    "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.pca.evec" \
+    "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.fam" \
+    "$OUT_DIR/$IN_DATA_PREFIX.qc3.maf_0.05.king.ibs0" \
+    "$MIN_PC2_THRESH" \
+    "$MAX_KINSHIP_THRESH" \
+    "$OUT_DIR/$IN_DATA_PREFIX.qc3.summary.txt" \
+    "$OUT_DIR/$IN_DATA_PREFIX.qc3.summary_table.txt" \
+    "$OUT_DIR/$IN_DATA_PREFIX.qc3.sample_fail_any.txt"
 
-plink --noweb \
+# Remove
+plink \
     --bfile "$OUT_DIR/$IN_DATA_PREFIX.qc3" \
     --remove "$OUT_DIR/$IN_DATA_PREFIX.qc3.sample_fail_any.txt" \
     --make-bed \
@@ -231,17 +251,15 @@ plink --noweb \
 # TODO nothing below here works
 exit
 
-
-
 #----------------------------------------------- PART 3 -----------------------------------------------#
 
 # Check the missing data rate across all the markers in this batch.
-bsub -J "missingness_cases" -R"select[mem>2000] rusage[mem=2000]" -M2000 -o logs/QC_missing.log -G crohns "plink --noweb --bfile /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/3_sample_QC/coreex_gaibdc_usgwas_qc3 --missing --out /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc3"
+bsub -J "missingness_cases" -R"select[mem>2000] rusage[mem=2000]" -M2000 -o logs/QC_missing.log -G crohns "plink --bfile /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/3_sample_QC/coreex_gaibdc_usgwas_qc3 --missing --out /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc3"
 
 Rscript /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/scripts/lmiss-hist.Rscript /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc3
 
 # Check for markers with different genotype call rates between cases and controls.
-bsub -J "diffmiss" -R"select[mem>2000] rusage[mem=2000]" -M2000 -o /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/logs/QC_diffmiss.log -G crohns "plink --noweb --bfile /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/3_sample_QC/coreex_gaibdc_usgwas_qc3 --test-missing --out /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc3"
+bsub -J "diffmiss" -R"select[mem>2000] rusage[mem=2000]" -M2000 -o /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/logs/QC_diffmiss.log -G crohns "plink --bfile /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/3_sample_QC/coreex_gaibdc_usgwas_qc3 --test-missing --out /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc3"
 
 
 #bsub -J "diffmiss" -R"select[mem>2000] rusage[mem=2000]" -M2000 -o /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/logs/QC_diffmiss.log -G crohns "perl /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/scripts/run-diffmiss-qc.pl /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc3"
@@ -251,7 +269,7 @@ cat /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coree
 
 # Prune out those with significant diffmiss, and do another double check on the missingness
 # now that lots of dodgy samples have been removed.
-bsub -J "prune" -R"select[mem>2000] rusage[mem=2000]" -M2000 -o /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/logs/QC_marker_prune_a.log -G crohns "plink --noweb --bfile /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/3_sample_QC/coreex_gaibdc_usgwas_qc3 --exclude /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/fail-diffmiss-qc.txt --geno 0.05 --make-bed --out /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc3a"
+bsub -J "prune" -R"select[mem>2000] rusage[mem=2000]" -M2000 -o /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/logs/QC_marker_prune_a.log -G crohns "plink --bfile /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/3_sample_QC/coreex_gaibdc_usgwas_qc3 --exclude /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/fail-diffmiss-qc.txt --geno 0.05 --make-bed --out /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc3a"
 
 
 # Remove markers with the batch effects identified by Yang's PC analysis. This involved:
@@ -261,26 +279,26 @@ bsub -J "prune" -R"select[mem>2000] rusage[mem=2000]" -M2000 -o /lustre/scratch1
 # 	test between these two groups, and identify 'significant' sites (P<1e-5)
 # - Because this problematic batch is all cases, these will generate false hits if
 #	left in. Thus all these sites (429) need to be removed.
-bsub -J "prune" -R"select[mem>2000] rusage[mem=2000]" -M2000 -o /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/logs/QC_marker_prune_3b.log -G crohns "plink --noweb --bfile /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc3a --exclude /lustre/scratch113/projects/crohns/2015jan20/GWAS_imputation/pcs/batch/batch-fail-1e-5.txt --make-bed --out /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc3b"
+bsub -J "prune" -R"select[mem>2000] rusage[mem=2000]" -M2000 -o /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/logs/QC_marker_prune_3b.log -G crohns "plink --bfile /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc3a --exclude /lustre/scratch113/projects/crohns/2015jan20/GWAS_imputation/pcs/batch/batch-fail-1e-5.txt --make-bed --out /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc3b"
 
 # Find markers with a HWE P-value < 0.00001 (in controls)
-bsub -J "prune" -R"select[mem>2000] rusage[mem=2000]" -M2000 -o /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/logs/QC_hwe_markers.log -G crohns "plink --noweb --bfile /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc3b --hardy --out /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc3b"
+bsub -J "prune" -R"select[mem>2000] rusage[mem=2000]" -M2000 -o /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/logs/QC_hwe_markers.log -G crohns "plink --bfile /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc3b --hardy --out /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc3b"
 
 # Pull out those with a hwe < 0.00001. 
-#bsub -J "prune" -R"select[mem>2000] rusage[mem=2000]" -M2000 -o /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/logs/QC_marker_prune_b.log -G crohns -q yesterday "plink --noweb --bfile /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc3b --maf 0.05 --make-bed --out /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc3c"
+#bsub -J "prune" -R"select[mem>2000] rusage[mem=2000]" -M2000 -o /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/logs/QC_marker_prune_b.log -G crohns -q yesterday "plink --bfile /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc3b --maf 0.05 --make-bed --out /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc3c"
 
-bsub -J "prune" -R"select[mem>2000] rusage[mem=2000]" -M2000 -o /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/logs/QC_marker_prune_b.log -G crohns -q yesterday "plink --noweb --bfile /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc3b --hwe 0.00001 midp --make-bed --out /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc4"
+bsub -J "prune" -R"select[mem>2000] rusage[mem=2000]" -M2000 -o /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/logs/QC_marker_prune_b.log -G crohns -q yesterday "plink --bfile /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc3b --hwe 0.00001 midp --make-bed --out /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc4"
 
 
 # Before imputation, prune to SNPs with a MAF > 0.1%
-bsub -J "prune" -R"select[mem>2000] rusage[mem=2000]" -M2000 -o /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/logs/QC_marker_prune.log -G crohns "plink --noweb --bfile /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc4 --maf 0.001 --make-bed --out /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qcIMP"
+bsub -J "prune" -R"select[mem>2000] rusage[mem=2000]" -M2000 -o /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/logs/QC_marker_prune.log -G crohns "plink --bfile /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc4 --maf 0.001 --make-bed --out /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qcIMP"
 
 
 
 # Before imputation, may want to prune based on MAF??
-bsub -J "prune" -R"select[mem>2000] rusage[mem=2000]" -M2000 -o /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/logs/QC_marker_prune.log -G crohns "plink --noweb --bfile /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc4 --maf 0.01 --make-bed --out /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc5"
+bsub -J "prune" -R"select[mem>2000] rusage[mem=2000]" -M2000 -o /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/logs/QC_marker_prune.log -G crohns "plink --bfile /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc4 --maf 0.01 --make-bed --out /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc5"
 
-bsub -J "prune" -R"select[mem>2000] rusage[mem=2000]" -M2000 -o /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/logs/QC_marker_prune.log -G crohns "plink --noweb --bfile /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc4 --maf 0.005 --make-bed --out /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc6"
+bsub -J "prune" -R"select[mem>2000] rusage[mem=2000]" -M2000 -o /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/logs/QC_marker_prune.log -G crohns "plink --bfile /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc4 --maf 0.005 --make-bed --out /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc6"
 
 
-bsub -J "prune" -R"select[mem>2000] rusage[mem=2000]" -M2000 -o /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/logs/QC_marker_prune.log -G crohns "plink --noweb --bfile /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc4 --maf 0.001 --make-bed --out /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc7"
+bsub -J "prune" -R"select[mem>2000] rusage[mem=2000]" -M2000 -o /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/logs/QC_marker_prune.log -G crohns "plink --bfile /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc4 --maf 0.001 --make-bed --out /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qc7"
