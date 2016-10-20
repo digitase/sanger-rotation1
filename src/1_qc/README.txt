@@ -40,6 +40,35 @@ A merger of several different pipelines/recommendations:
     association studies. Nature Protocols, 5(9), 1564–73.
     https://doi.org/10.1038/nprot.2010.116
 
+Notes:
+    On the known plate swap 
+
+        There was a plate swap, between samples on plates
+        333833 and 333835, so you can check for those numbers in the sample names
+        (PLATE_WELL_SAMPLE). If you want to be super careful though, they fixed the
+        genders in the 4th release of the data, so you can check back against the
+        fam file in here:
+        /lustre/scratch114/teams/barrett/coreex_gaibdc/release/coreex_gaibdc_20150304
+
+        de Lange, 2016-10-13
+
+    On the order of filters
+
+        I applied most of the filters all at once - mostly because some of them
+        were inter-dependent. For example, when you are removing one individual
+        from a related pair, you want to make sure that if one individual fails (or
+        is worse, even if it doesn’t reach the failure threshold) on other
+        filter(s), then that is the one you remove. Otherwise you may end up
+        throwing away both individuals, even though one is fine. (edited) For most
+        of the other filters, it doesn’t matter if you apply them together or
+        separately, because failure is failure, regardless of their status
+        elsewhere (e.g. if it is a missingness fail, then you are going to remove
+        it no matter what) The only one I would really suggest making sure you do
+        separately first is extreme missingness, as these can affect your
+        calculations of the mean and sd for heterozygosity rate.
+
+        de Lange, 2016-10-14
+
 Cleaned dataset stats after filtering for MAF from the final plink log file.
 
     296117 variants and 18846 people pass filters and QC.  

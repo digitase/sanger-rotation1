@@ -100,6 +100,7 @@ plink \
 # Identification of duplicated or related individuals
 
 # First prune to sites with >5% freq to save time
+# Rare variation is generally not required to determine relatedness.
 plink \
     --bfile "$OUT_DIR/$IN_DATA_PREFIX.qc3" \
     --maf "0.05" \
@@ -107,7 +108,7 @@ plink \
     --out "$OUT_DIR/$IN_DATA_PREFIX.qc3.maf_0.05"
 
 # Use KING for relationship inference 
-# using Identity By State up to and including third degree relatives
+# up to and including third degree relatives
 # Runtime: approx 2-5h
 # Extra flag for farm use:
     # -G team152 \
@@ -281,6 +282,7 @@ awk -v thresh="$DIFFMISS_PVAL_THRESH" '($5 < thresh) {print $2}' \
 # Filter markers
 #
 # 1. Remove markers that depart significantly from Hardy-Weinburg equilibrium in controls.
+#    Most GWA studies exclude markers that show extensive devia tion from HWE because this can be indicative of a genotyping or genotype-calling error.
 #    The "midp" option applies the mid-p adjustment described in Graffelman J,
 #        Moreno V (2013) The mid p-value in exact tests for Hardy-Weinberg
 #        equilibrium. The mid-p adjustment tends to bring the null rejection rate
@@ -320,6 +322,8 @@ plink \
 #
 # Part 5. 
 # Before imputation, threshold on MAF
+# 
+# Rare variants are difficult to genotype, and power to detect associations is low.
 #
 
 IMPUTE_MAF_THRESH="0.001"
