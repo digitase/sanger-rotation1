@@ -4,3 +4,4 @@ data
 *.swo
 *.Rdata
 *.Rhistory
+.output

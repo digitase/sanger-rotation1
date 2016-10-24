@@ -11,10 +11,10 @@ R_DIR="/software/R-3.3.0/bin/"
 
 PATH="$PLINK_DIR:$R_DIR:$PATH"
 
-IN_DATA_DIR="$HOME/workspace/rotation1/data/gwas3/"
+IN_DATA_DIR="/nfs/users/nfs_b/bb9/workspace/rotation1/data/gwas3/"
 IN_DATA_PREFIX="coreex_gaibdc_usgwas_raw"
 
-OUT_DIR="$HOME/workspace/rotation1/crohns_workspace/1_qc/"
+OUT_DIR="/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/1_qc/"
 mkdir -p "$OUT_DIR"
 
 # Symlink in raw opticalled data to output dir
@@ -198,7 +198,7 @@ ln -s "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.short_id.fam" "
 #       It is assumed that the population of each individual is specified in the 
 #       indiv file.
 #       In this case, pops 3, 4, 5, 6 are the populations in the last column of the hapmap indiv file.
-perl "$HOME/packages/eigensoft/bin/smartpca.perl" \
+perl "/nfs/users/nfs_b/bb9/packages/eigensoft/bin/smartpca.perl" \
     -i "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.bed" \
     -a "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.pedsnp" \
     -b "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.pedind" \
