@@ -28,16 +28,21 @@ IN_DATA_PREFIX="coreex_gaibdc_usgwas_raw.qc6.maf_0.001"
 OUT_DIR="/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/2_phasing/1_sanger_imputation_service/"
 mkdir -p "$OUT_DIR"
 
+# Only chr 20 for now
+CHR=20
+
 # Convert binary PLINK to vcf
 plink \
     --bfile "$IN_DATA_DIR/$IN_DATA_PREFIX" \
-    --chr 20 \
+    --chr "$CHR" \
     --recode-vcf \
     --out "$OUT_DIR/$IN_DATA_PREFIX"
 
 # Check REF allele matches GRCh37 base and coordinate
 
 # Fix allele ordering.
+# plink automatically sets the major (common) allele as the reference allele for each population when generating the bim (map) files.
+# Hence the true reference allele has been lost.
 # Force the A2 allele to match the ref allele in GRCh37.
 
 # Download reference
@@ -57,7 +62,7 @@ paste \
 # Regenerate vcf with correct allele ordering
 plink \
     --bfile "$IN_DATA_DIR/$IN_DATA_PREFIX" \
-    --chr 20 \
+    --chr "$CHR" \
     --a2-allele "$OUT_DIR/$IN_DATA_PREFIX.ref_alleles.txt" 1 2 \
     --recode-vcf \
     --out "$OUT_DIR/$IN_DATA_PREFIX.alleles_ordered"
