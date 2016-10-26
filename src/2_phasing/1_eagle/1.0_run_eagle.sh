@@ -69,11 +69,12 @@ mkdir -p "$OUT_DIR"
 ln -s "$IN_DATA_DIR/$IN_DATA_PREFIX.vcf" "$OUT_DIR/$IN_DATA_PREFIX.vcf"
 bcftools convert -Ob <"$OUT_DIR/$IN_DATA_PREFIX.vcf" >"$OUT_DIR/$IN_DATA_PREFIX.bcf.gz"
 
+# TODO can change output format using --vcfOutFormat
 eagle \
     --vcf "$OUT_DIR/$IN_DATA_PREFIX.bcf.gz" \
     --geneticMapFile="/nfs/users/nfs_b/bb9/packages/Eagle_v2.3/tables/genetic_map_hg19_withX.txt.gz" \
     --chrom "$CHR" \
     --numThreads "$N_THREADS" \
-    --outPrefix="$OUT_DIR/$IN_DATA_PREFIX.phased_farm1" \
-        2>&1 | tee "$OUT_DIR/$IN_DATA_PREFIX.phased_farm1.log"
+    --outPrefix="$OUT_DIR/$IN_DATA_PREFIX.phased" \
+        2>&1 | tee "$OUT_DIR/$IN_DATA_PREFIX.phased.log"
 

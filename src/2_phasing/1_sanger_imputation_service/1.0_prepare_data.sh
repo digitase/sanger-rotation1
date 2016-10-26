@@ -38,7 +38,11 @@ plink \
     --recode-vcf \
     --out "$OUT_DIR/$IN_DATA_PREFIX"
 
+#
 # Check REF allele matches GRCh37 base and coordinate
+#
+
+# Alleles are already on the fwd strand.
 
 # Fix allele ordering.
 # plink automatically sets the major (common) allele as the reference allele for each population when generating the bim (map) files.
@@ -70,10 +74,6 @@ plink \
 # Remove indels
 awk '/^#/ {print; next} {if ($4 !~ /[I|D]/) {print}}' "$OUT_DIR/$IN_DATA_PREFIX.alleles_ordered.vcf" > "$OUT_DIR/$IN_DATA_PREFIX.alleles_ordered.no_indel.vcf"
 
-#
-# Check your REF allele matches build37
-#
-
 # Check for remaining mismatches
 # which occur when the reference base does not match either of the vcf alleles.
 bcftools +fixref "$OUT_DIR/$IN_DATA_PREFIX.alleles_ordered.no_indel.vcf" -- -f "$OUT_DIR/human_g1k_v37.fasta"
@@ -92,4 +92,6 @@ bcftools view \
 # The resulting VCF file is uploaded to the online impuation service.
 # Check job status here:
 # https://imputation.sanger.ac.uk/?status=1&rid=a279d523d8b71059c38494fb118c8bfd
+
+# Results were downloaded to /lustre/scratch113/projects/crohns/bb9/2_phasing/1_sanger_imputation_service/results_2016-10-25/
 
