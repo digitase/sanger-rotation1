@@ -25,7 +25,7 @@ PATH="$PLINK_DIR:$TABIX_DIR:$BEDTOOLS_DIR:$PATH"
 IN_DATA_DIR="/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/1_qc/"
 IN_DATA_PREFIX="coreex_gaibdc_usgwas_raw.qc6.maf_0.001"
 
-OUT_DIR="/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/2_phasing/1_sanger_imputation_service/"
+OUT_DIR="/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/2_phasing/0_prep_data/"
 mkdir -p "$OUT_DIR"
 
 # Only chr 20 for now
@@ -53,8 +53,23 @@ plink \
 if [ ! -f "$OUT_DIR/human_g1k_v37.fasta" ]; then
     wget -O "$OUT_DIR/human_g1k_v37.fasta.gz" ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/human_g1k_v37.fasta.gz
     gunzip "$OUT_DIR/human_g1k_v37.fasta.gz"
+    samtools faidx "$OUT_DIR/human_g1k_v37.fasta"
 fi
 
+#
+# Reference switching method 1
+#
+# Perform reference switching to match hg19 using bcftools +set-ref
+# NOTE: this treats I/D plink representation of alleles as tri-allelic positions, setting the REF base, then the ALT base = I,D.
+# bash "1.1_vcf_set_ref.sh" \
+    # "$OUT_DIR/$IN_DATA_PREFIX.vcf" \
+    # "$OUT_DIR/human_g1k_v37.fasta" \
+    # "$OUT_DIR/$IN_DATA_PREFIX.set_ref.vcf"
+# bcftools +fixref "$OUT_DIR/$IN_DATA_PREFIX.set_ref.vcf" -- -f "$OUT_DIR/human_g1k_v37.fasta"
+
+#
+# Reference switching method 2
+#
 # Extract ref bases at the coords of the markers from the reference fasta.
 # Extract marker ids from the vcf.
 # Merge.
@@ -93,5 +108,5 @@ bcftools view \
 # Check job status here:
 # https://imputation.sanger.ac.uk/?status=1&rid=a279d523d8b71059c38494fb118c8bfd
 
-# Results were downloaded to /lustre/scratch113/projects/crohns/bb9/2_phasing/1_sanger_imputation_service/results_2016-10-25/
+# Results were downloaded to /lustre/scratch113/projects/crohns/bb9/3_imputation/1_sanger_imputation_service/results_2016-10-25/
 

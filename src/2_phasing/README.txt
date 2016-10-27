@@ -3,7 +3,7 @@ Phase genotypes -> haplotypes.
 
 Operate on a small chromosome e.g. chr20 to save time.
 
-The bigger plan:
+The bigger plan for phasing and imputation:
     Phasing with EAGLE2
     Phasing with pbwt
 
@@ -17,5 +17,5 @@ The bigger plan:
         The 1000 genomes reference panel (2504? individuals) is located at:
         /lustre/scratch113/projects/crohns/2013Aug07/imputation/reference/ALL.integrated_phase1_v3.20101123.snps_indels_svs.genotypes.nosing
 
-    and then comparison of results.
+    and then comparison of results between panels.
 
