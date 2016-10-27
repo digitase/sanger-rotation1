@@ -1,0 +1,12 @@
+
+compare qc data to katie’s qc data
+
+compare between imputation reference panels
+and to release version
+
+scripts and assoc results:
+/lustre/scratch113/projects/crohns/2015jan20/GWAS_imputation/assoc_NEW/GWAS3
+
+raw data for assoc (post imputation):
+/lustre/scratch113/projects/crohns/RELEASE/v1/GWAS3/
+
