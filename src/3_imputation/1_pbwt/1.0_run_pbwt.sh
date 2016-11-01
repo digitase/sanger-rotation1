@@ -1,11 +1,18 @@
+#!/usr/local/bin/bash
+#
+# Impute haplotypes
+#
 
+# Which chromosome to impute
 CHR=20
 
 OUT_DIR="/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/3_imputation/1_pbwt/"
 mkdir -p "$OUT_DIR"
 
+#
 # Correct the strand of the data
-# TODO Instead does exactly the opposite (horribly broken).
+# TODO Currently does exactly the opposite (i.e. horribly broken).
+#
 # wget -O "$OUT_DIR/HumanCoreExome-12v1-1_B-b37.strand.RefAlt.zip" "http://www.well.ox.ac.uk/~wrayner/strand/RefAlt/HumanCoreExome-12v1-1_B-b37.strand.RefAlt.zip"
 # unzip "$OUT_DIR/HumanCoreExome-12v1-1_B-b37.strand.RefAlt.zip" -d "$OUT_DIR"
 # IN_PLINK_DIR="/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/1_qc/"
@@ -18,16 +25,6 @@ mkdir -p "$OUT_DIR"
     # --out "$OUT_DIR/$IN_PLINK_PREFIX.ref_allele_forced"
 # export BCFTOOLS_PLUGINS="/nfs/users/nfs_b/bb9/packages/bcftools/plugins/"
 # bcftools +fixref "$OUT_DIR/$IN_PLINK_PREFIX.ref_allele_forced.vcf" -- -f "../1_sanger_imputation_service/.output/human_g1k_v37.fasta"
-
-#
-# Convert from output gzipped Oxford HAPS/SAMPLE format (used by SHAPEIT2) to bcf
-#
-# First convert first column to required format: CHROM:POS_REF_ALT
-
-# bcftools convert \
-    # -Oz \
-    # --hapsample2vcf "$OUT_DIR/$IN_PLINK_PREFIX.phased.haps.gz","$OUT_DIR/$IN_PLINK_PREFIX.phased.sample" \
-        # > "$OUT_DIR/$IN_PLINK_PREFIX.phased.vcf.gz"
 
 # Create pbwt imputeRef files for the panel
 PANEL_PREFIX="ALL.chr20.integrated_phase1_v3.20101123.snps_indels_svs.genotypes.nosing"
@@ -49,11 +46,12 @@ gunzip -c "/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/2_phasing/1
     bcftools convert -Ou - > "$OUT_DIR/coreex_gaibdc_usgwas_raw.qc6.maf_0.001.alleles_ordered.no_indel.no_ref_mismatch.phased.bcf"
 
 # Runtime on chr20: 2h, 6Gb memory
+# TODO turn this into a bsub
 pbwt \
-    -log "$OUT_DIR/imputation.log" \
+    -log "$OUT_DIR/$CHR.imputation.log" \
     -checkpoint 10000 \
     -readVcfGT "$OUT_DIR/coreex_gaibdc_usgwas_raw.qc6.maf_0.001.alleles_ordered.no_indel.no_ref_mismatch.phased.bcf" \
     -referenceImpute "$OUT_DIR/$PANEL_PREFIX.imputeRef" \
     -referenceFasta "/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/2_phasing/1_sanger_imputation_service/human_g1k_v37.fasta" \
-    -writeBcfGz "$OUT_DIR/imputed.bcf.gz"
+    -writeBcfGz "$OUT_DIR/$CHR.imputed.bcf.gz"
 

@@ -55,16 +55,6 @@ mkdir -p "$OUT_DIR"
 # Use eagle2 to perform phasing without a reference panel
 #
 
-# IN_PLINK_DIR="/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/1_qc/"
-# IN_PLINK_PREFIX="coreex_gaibdc_usgwas_raw.qc6.maf_0.001"
-
-# eagle \
-    # --bfile "$IN_PLINK_DIR/$IN_PLINK_PREFIX" \
-    # --geneticMapFile="/nfs/users/nfs_b/bb9/packages/Eagle_v2.3/tables/genetic_map_hg19_withX.txt.gz" \
-    # --chrom "$CHR" \
-    # --outPrefix="$OUT_DIR/$IN_PLINK_PREFIX.phased" \
-        # 2>&1 | tee "$OUT_DIR/$IN_PLINK_PREFIX.eagle.log"
-
 # Compress vcf -> bcf.gz
 ln -s "$IN_DATA_DIR/$IN_DATA_PREFIX.vcf" "$OUT_DIR/$IN_DATA_PREFIX.vcf"
 bcftools convert -Ob <"$OUT_DIR/$IN_DATA_PREFIX.vcf" >"$OUT_DIR/$IN_DATA_PREFIX.bcf.gz"

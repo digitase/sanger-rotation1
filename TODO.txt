@@ -10,3 +10,7 @@ scripts and assoc results:
 raw data for assoc (post imputation):
 /lustre/scratch113/projects/crohns/RELEASE/v1/GWAS3/
 
+    generate PCs using plink
+    snptest correcting for 10 pcs
+
+bsub version of pbwt

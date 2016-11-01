@@ -1,0 +1,111 @@
+Welcome to SNPTEST v2.5-beta4
+© University of Oxford 2008-2013
+https://mathgen.stats.ox.ac.uk/genetics_software/snptest/snptest.html
+Read LICENCE file for conditions of use.
+
+
+Usage: snptest_v2.5-beta4 <options>
+
+OPTIONS:
+INPUT OPTIONS:
+              -assume_chromosome <a>: Treat each SNP whose chromosome cannot be determined as though it lies on the spec-
+                                      ified chromosome.  Defaults to "NA".
+                    -data <a> <b>...: specify data files for analysis in .gen and .sample pairs. Automatic detection of 
+                                      .gz files.
+                 -genotype_field <a>: name of field to use from VCF file.
+     -genotype_probability_scale <a>: Specify a scale to use when interpreting probability data in input files. Possible
+                                      choices are "identity" or "phred", which treats probability data as phred-scaled. 
+                                      Defaults to "identity".
+        -haploid_genotype_coding <a>: Specify whether haploid samples (e.g. males on the non-pseudoautosomal region of t-
+                                      he X chromosome) are coded as heterozygotes ("het") or homozygotes ("hom").
+                   -missing_code <a>: missing code(s) for covariates and phenotypes. This can be a comma-separated list 
+                                      of string values.  Defaults to "NA".
+               -total_prob_limit <a>: Specify that SNPTEST should treat as missing any genotype calls where the sum of p-
+                                      robabilities is less than the given value.  Defaults to "0.1".
+
+OUTPUT OPTIONS:
+                            -log <a>: name of log file.
+                              -o <a>: name of output file.
+                            -odb <a>: Specify that SNPTEST should interpret the output file as a sqlite3 database, and o-
+                                      utput results to a table of the specified name.
+                     -table_name <a>: Specify that results should be stored in a table of the given name (when using -od-
+                                      b). In addition, a view named "<a>View" will also be created; results can be viewe-
+                                      d using a command such as
+                                      $ sqlite3 <output file> "SELECT * FROM <a>View"
+      -use_long_column_naming_scheme: Specify that SNPTEST should name association test columns using long names, as in 
+                                      previous releases. When using this option, column names include the phenotype bein-
+                                      g tested, the covariates, and the model fitting method.
+
+EXCLUSION OPTIONS:
+         -exclude_samples <a> <b>...: list of samples to be excluded.
+                   -exclude_snps <a>: list of snps to be excluded.
+                    -miss_thresh <a>: exclude samples with missing rate > a (as taken from the "missing" column in the s-
+                                      ample file).
+
+ASSOCIATION TESTS:
+                -bayesian <a> <b>...: specify which Bayesian tests to fit 
+                    -call_thresh <a>: threshold to use for calling genotypes.  Defaults to "0.9".
+             -frequentist <a> <b>...: specify which Frequentist tests to fit.
+           -full_parameter_estimates: Generate estimates of parameters relating to baseline and covariates, in addition 
+                                      to those for genetic effects. Currently this applies when using -method newml only.
+                         -method <a>: method used to fit model, this can be one of "threshold", "expected", "score", "ml",
+                                      "newml", or "em". 
+                          -pheno <a>: specify name of phenotype to use.
+                 -summary_stats_only: Only produce summary statistics.
+
+SPECIFY COVARIATES TO CONDITION ON IN ASSOCIATION TEST:
+                            -cov_all: condition on all covariates in sample files.
+                 -cov_all_continuous: condition on all continuous covariates (C) in the sample files.
+                   -cov_all_discrete: condition on all discrete covariates (D) in the sample files.
+               -cov_names <a> <b>...: list names of covariates to use.
+                     -sex_column <a>: Specify the name of a column of type D in the sample file(s) which specifies the s-
+                                      ex of samples. Values in the column must be "f", "m", "male" or "female".  Default-
+                                      s to "sex".
+                    -stratify_on <a>: Specify that tests should be stratified over the levels of the specified discrete 
+                                      covariate
+
+SPECIFY SNPS TO CONDITION ON IN ASSOCIATION TEST:
+            -condition_on <a> <b>...: condition on additive, dominant, recessive, heterozygote or general (additive + he-
+                                      terozygote) dosages at the SNPs with specified snp or rsids.
+
+BAYESIAN BINARY TRAIT MODEL PRIORS:
+          -prior_add <a> <b> <c> <d>: additive model prior parameters.
+                  -prior_cov <a> <b>: prior parameters for covariates in bayesian binary trait models.
+          -prior_dom <a> <b> <c> <d>: dominant model prior parameters.
+  -prior_gen <a> <b> <c> <d> <e> <f>: general model prior parameters.
+          -prior_het <a> <b> <c> <d>: heterozygote model prior parameters.
+          -prior_rec <a> <b> <c> <d>: recessive model prior parameters.
+                           -t_df <a>: degrees of freedom for tdistribution (default is 3).  Defaults to "3".
+                            -t_prior: use t-distribution priors for genetic effects.
+
+BAYESIAN QUANTITATIVE TRAIT MODEL PRIORS:
+                   -prior_qt_V_a <a>: variance parameter for beta in QT models.
+                   -prior_qt_V_b <a>: variance parameter for q in QT models.
+                     -prior_qt_a <a>: a parameter for inverse gamma IG(a,b) prior in QT models.
+                     -prior_qt_b <a>: b parameter for inverse gamma IG(a,b) prior in QT models.
+                -prior_qt_mean_b <a>: mean for beta in QT models.
+                -prior_qt_mean_q <a>: mean for q in QT models.
+
+BAYESIAN MODEL AVERAGING OPTION:
+                 -mean_bf <a> <b>...: calculate log10(Mean BF) where the mean BF is a weighted mean with weights w1,...,w-
+                                      n.
+
+OTHER OPTIONS:
+           -analysis_description <a>: Specify a textual description of the current analysis.  Defaults to "SNPTEST v2.5-b-
+                                      eta4 analysis, started 2016-10-27 15:00:44".
+                  -analysis_name <a>: Set the name of the analysis.  This does not affect the analysis but is useful for
+                                      tagging the result set with a memorable identifier.  Defaults to "SNPTEST analysis,
+                                      started 2016-10-27 15:00:44".
+                          -chunk <a>: read SNPs in chunks of size x in at a time (default is 100).
+                              -debug: Print information to the log file useful for debugging the model fitting process.
+                                -hwe: calculate Hardy-Weinberg statistics for each cohort and combined data.
+             -lower_sample_limit <a>: SNPTEST relies on asymptotic approximations and by default will only run associati-
+                                      on tests when there are at least 100 informative samples.  Use this option to chan-
+                                      ge this limit.  Defaults to "100".
+                            -overlap: Operate only on the "overlap" set of SNPs common to all cohorts.
+                           -printids: print SNP ids as program runs.
+                   -range <a> <b>...: Operate only on SNPs within one of the given ranges.
+                   -snpid <a> <b>...: analyze only 1 SNP with given id.
+                 -use_raw_covariates: Do not normalise continuous covariates to have mean 0 and variance 1.
+                 -use_raw_phenotypes: Do not normalise continuous phenotypes to have mean 0 and variance 1.
+

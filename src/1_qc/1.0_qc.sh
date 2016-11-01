@@ -109,10 +109,12 @@ plink \
 
 # Use KING for relationship inference 
 # up to and including third degree relatives
-# Runtime: approx 2-5h
+#
+# -K flag waits for the job to complete
 # Extra flag for farm use:
     # -G team152 \
-
+# Runtime: approx 2-5h
+#
 bsub \
     -K \
     -J "$IN_DATA_PREFIX.qc3.maf_0.05.king" \
@@ -141,8 +143,8 @@ plink \
 # Prune SNPs so that no pair of SNPs (within a given number of base pairs) has an R2 value greater than a given threshold
 plink \
     --bfile "$OUT_DIR/$IN_DATA_PREFIX.qc3" \
-    --exclude "/lustre/scratch113/teams/barrett/coreex_gaibdc/refs/high-LD-regions.txt" \
-    --range --indep-pairwise 50 5 "0.2" \
+    --exclude range "/lustre/scratch113/teams/barrett/coreex_gaibdc/refs/high-LD-regions.txt" \
+    --indep-pairwise 50 5 "0.2" \
     --out "$OUT_DIR/$IN_DATA_PREFIX.qc3.prune_markers_by_ld"
 
 # Merge our samples and hapmap samples, keeping only the LD pruned markers.

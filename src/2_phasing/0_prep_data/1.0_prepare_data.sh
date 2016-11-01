@@ -1,4 +1,5 @@
-
+#!/usr/local/bin/bash
+#
 # For VCF, we require:
     # Valid VCF
     # All alleles on the forward strand
