@@ -14,3 +14,4 @@ raw data for assoc (post imputation):
     snptest correcting for 10 pcs
 
 bsub version of pbwt
+

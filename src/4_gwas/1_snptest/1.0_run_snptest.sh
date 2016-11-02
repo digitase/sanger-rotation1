@@ -23,6 +23,7 @@ assoc="ibd"
 # Chunk size in bp
 # Chunks will be run in parallel
 # Orig, 2M = 22h. run 4 times the dfs, so div blocksize by 4, then 2 again to fit in 12h normal queue
+# Max chunk runtime ~8h
 chunk_size=200000
 
 # Dir with info on marker positions, used to calculate chunk coords.
@@ -30,8 +31,7 @@ QC_SUMMARY_DIR="/lustre/scratch113/projects/crohns/RELEASE/QCsummaries/"
 
 # Which chromosomes to run
 #
-# for ((chr = 1; chr <= 22; chr++)) {
-for ((chr = 1; chr <= 1; chr++)) {
+for ((chr = 1; chr <= 22; chr++)) {
 
     # Calculate number of chunks based on the maximum position of a snp on the chromosome
     max_genome_pos="$(zcat $QC_SUMMARY_DIR/$chr.txt.gz | cut -d':' -f 2 | cut -d'_' -f 1 | sort -n | tail -n 1)"
@@ -45,18 +45,17 @@ for ((chr = 1; chr <= 1; chr++)) {
     # bsub a job array over the chunks
     #
     # -Q to resubmit jobs failing due to std::bad_alloc
-    # Seems to occur haphazardy, with different chunks failing each time.
+    # Seems to occur haphazardy, with different chunks failing each time. Possible node failures.
     # TODO Currently unsure if different -R requests change the failing chunks.
-
+    #
     bsub \
         -G team152 -q normal \
         -Q "255" \
-        -R "select[mem>4000] rusage[mem=4000]" -M 4000 \
+        -R "select[mem>2000] rusage[mem=2000]" -M 2000 \
         -J "$dataset.$assoc.$chr[1-$n_chunks]" \
         -o "$OUT_DIR/logs/$dataset/$assoc/$chr/jobid_%J.i_%I.bsub_o.log" \
         -e "$OUT_DIR/logs/$dataset/$assoc/$chr/jobid_%J.i_%I.bsub_e.log" \
         "bash 1.1_run_snptest_chunk.sh $OUT_DIR $dataset $assoc $chr $chunk_size"
 
-    date
 }
 

@@ -63,8 +63,21 @@ end=$(echo "($chunk_i * $chunk_size) - 1" | bc)
 
     # 65m to run a -range 200Kb chunk with 1 2 3 4 
 
+date && echo Starting...
 echo "LSB_JOBINDEX is $LSB_JOBINDEX"
 
+chunk_output_file="$OUT_DIR/results/$dataset/$assoc/$chr/chunk_$chunk_i.range_${start}_$end.snptest.out" 
+
+# Check if chunk already has output
+# If chunk output file has non zero size, skip it.
+# Note that regions with no association will have outputs with zero size.
+# if [ -s "$chunk_output_file" ]; then
+    # echo "Non-zero size output file detected: $chunk_output_file"
+    # echo "Skipping chunk $LSB_JOBINDEX"
+    # exit
+# fi
+
+# Run snptest
 "$SNPTEST_BIN" \
     -data "$IN_GEN_FILES_DIR/$chr.gen.gz" "$IN_PCS_SAMPLE_FILE" \
     -exclude_samples "$IN_EXCLUDE_SAMPLES_DIR/gwas3-"$assoc"-assoc-sample-exclusion.txt" \
@@ -74,5 +87,7 @@ echo "LSB_JOBINDEX is $LSB_JOBINDEX"
     -method score \
     -pheno bin1 \
     -cov_all_continuous \
-    -o "$OUT_DIR/results/$dataset/$assoc/$chr/chunk_$chunk_i.range_${start}_$end.snptest.out" 
+    -o "$chunk_output_file" 
+
+date && echo Done.
 
