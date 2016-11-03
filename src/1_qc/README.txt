@@ -77,3 +77,54 @@ Cleaned dataset stats after filtering for MAF from the final plink log file.
     Comparison with existing results in de Lange 2016 BIORXIV:
         9239 cases, 9500 controls over 296,203 variants (filtering for MAF > 0.01% assumed).
 
+A comparison of sample-related QC between this pipeline and de Lange (/lustre/scratch114/teams/barrett/coreex_gaibdc/QC/COMBINED/qc_steps.txt):
+
+Number of fails under each criteria from this pipeline:
+    
+     FID                IID            IMISS.FAIL       HET.FAIL       CHECKSEX.FAIL   ANCESTRY.FAIL   RELATEDNESS.FAIL  ANY.FAIL      
+ Length:22252       Length:22252       Mode :logical   Mode :logical   Mode :logical   Mode :logical   Mode :logical    Mode :logical  
+ Class :character   Class :character   FALSE:21932     FALSE:21495     FALSE:22001     FALSE:21069     FALSE:20418      FALSE:18755    
+ Mode  :character   Mode  :character   TRUE :320       TRUE :757       TRUE :251       TRUE :1183      TRUE :1834       TRUE :3497     
+                                       NA's :0         NA's :0         NA's :0         NA's :0         NA's :0          NA's :0 
+
+Number of fails from de Lange indicated with <-:
+    ANCESTRY (clear)
+    /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/3_sample_QC/coreex_gaibdc_usgwas_qc2.fail-ancestry.txt
+    1446 using a PC2 threshold of 0.066
+    1466 using a PC2 threshold of 0.067 <-
+        We observe 1183, as the 1466 figure includes hapmap samples.
+
+    HET.FAIL (clear)
+    /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/3_sample_QC/coreex_gaibdc_usgwas_qc2.fail-het-QC.txt
+    758 <-
+    but the script /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/scripts/imiss-vs-het.BATCH.Rscript uses 2SDs instead of 3.
+
+    RELATEDNESS.FAIL 
+    /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/3_sample_QC/coreex_gaibdc_usgwas_qc2.duplicates_to_remove
+    1008 duplicates (kinship > 0.354) (but only 967 unique samples) <-
+    /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/3_sample_QC/coreex_gaibdc_usgwas_qc2.first_degree_to_remove
+    1049 first degree (kinship > 0.177, < 0.354) (but only 868 unique samples) <-
+        1824 unique samples in the union of these two files.
+
+    SEX.FAIL (clear)
+    /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/3_sample_QC/fail-gender.txt
+    251 <-
+        250 + 333835_G08_UC755045 was also removed due to mismatched sex compared to a later release
+
+    # 5) Those with elevated missing rates have already been removed.
+    threshold of 0.01 was used
+
+    Total unique samples to remove:
+        3185 in /lustre/scratch113/teams/barrett/coreex_gaibdc/QC/COMBINED/3_sample_QC/sample_QC_fail.samples
+
+Explanation of differences
+    Samples differing between the pipelines are either in a related pair, or part of a second, extra round of sample missingness filtering that was done in this pipeline.
+    e.g. > all(setdiff(failures.summary$FID[failures.summary$ANY.FAIL], katie$V1) %in% union(failures.summary$IID[failures.summary$RELATEDNESS.FAIL], failures.summary$IID[failures.summary$IMISS.FAIL]))
+        is TRUE
+
+    Consider discrepencies in related pairs.
+        The member of the pair retained by the pipelines differs.
+        e.g. 386938_A10_gaibdc6035222 and 386936_E05_gaibdc6034982 are both members of a related pair where neither member fails other filters.
+            In these cases, the member with the lower missingness rate should be retained.
+                de Lange's pipeline retains the other member.
+
