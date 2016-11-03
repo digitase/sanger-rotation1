@@ -1,0 +1,1 @@
+/lustre/scratch114/teams/barrett/coreex_gaibdc/QC/COMBINED/qc_steps.txt

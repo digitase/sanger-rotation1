@@ -60,7 +60,7 @@ plink \
 
 # Plot heterozygosity, missingness and optimise thresholds
 MAX_SAMPLE_MISSINGNESS="0.01"
-MAX_HET_RATE_SD_THRESH=3
+MAX_HET_RATE_SD_THRESH=2
 
 Rscript "1.1_plot_imiss_vs_het.R" \
     "$OUT_DIR/$IN_DATA_PREFIX.qc2.imiss" \
@@ -96,6 +96,23 @@ plink \
     --bfile "$OUT_DIR/$IN_DATA_PREFIX.qc3" \
     --check-sex \
     --out "$OUT_DIR/$IN_DATA_PREFIX.qc3.check_sex" 
+
+# Recheck sample missingness and heterozygosity rate
+plink \
+    --bfile "$OUT_DIR/$IN_DATA_PREFIX.qc3" \
+    --missing \
+    --het \
+    --out "$OUT_DIR/$IN_DATA_PREFIX.qc3.missing_het" 
+
+# Plot heterozygosity, missingness and optimise thresholds
+Rscript "1.1_plot_imiss_vs_het.R" \
+    "$OUT_DIR/$IN_DATA_PREFIX.qc3.missing_het.imiss" \
+    "$OUT_DIR/$IN_DATA_PREFIX.qc3.missing_het.het" \
+    "$MAX_SAMPLE_MISSINGNESS" \
+    "$MAX_HET_RATE_SD_THRESH" \
+    "$OUT_DIR/$IN_DATA_PREFIX.qc3.missing_het.pdf" \
+    "$OUT_DIR/$IN_DATA_PREFIX.qc3.missing_het.sample_fail_imiss.txt" \
+    "$OUT_DIR/$IN_DATA_PREFIX.qc3.missing_het.sample_fail_het.txt"
 
 # Identification of duplicated or related individuals
 
@@ -212,7 +229,7 @@ perl "/nfs/users/nfs_b/bb9/packages/eigensoft/bin/smartpca.perl" \
     -w "/lustre/scratch113/teams/barrett/coreex_gaibdc/refs/pca-populations.txt"
 
 # Choose a PC2 threshold to exclude samples of non-European ancestry
-MIN_PC2_THRESH="0.066"
+MIN_PC2_THRESH="0.067"
 Rscript "1.2_plot-pca-results_alpha.R" "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.pca" "$MIN_PC2_THRESH"
 
 # Remove samples failing any QC checks:

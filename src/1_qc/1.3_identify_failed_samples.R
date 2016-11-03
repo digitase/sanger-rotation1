@@ -31,16 +31,16 @@ out.summaryTable.file <- commandArgs(T)[12]
 out.failedIds.file <- commandArgs(T)[13]
 
 # in.fam.orig.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc1.fam"
-# in.imiss.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc1.imiss"
+# in.imiss.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc2.imiss"
 # 
 # in.imiss.fails.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc2.sample_fail_imiss.txt"
-# in.het.fails.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc2.sample_fail_het.txt"
+# in.het.fails.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.missing_het.sample_fail_het.txt"
 # in.sexcheck.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.check_sex.sexcheck"
 # in.pca.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.pruned.hapmap_merged.flipped.pca.evec"
 # in.hapmap.fam.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.pruned.hapmap_merged.flipped.fam"
 # in.king.ibs0.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.maf_0.05.king.ibs0"
 # 
-# in.pc2.thresh <- as.numeric(0.066)
+# in.pc2.thresh <- as.numeric(0.067)
 # in.kinship.thresh <- as.numeric(0.177)
 # 
 # out.summary.file <- "../../crohns_workspace/1_qc/coreex_gaibdc_usgwas_raw.qc3.summary.txt"
@@ -81,6 +81,9 @@ in.sexcheck.df <- read.table(in.sexcheck.file, header = T)
 in.sexcheck.df <- within(in.sexcheck.df, {
     CHECKSEX.FAIL <- (PEDSEX != SNPSEX) & (PEDSEX != 0) & (!grepl("^333833|^333835", IID))
 })
+
+# Also exclude "333835_G08_UC755045" due to mismatched sex compared to a later release
+in.sexcheck.df$CHECKSEX.FAIL[in.sexcheck.df$IID == "333835_G08_UC755045"] <- T
 
 # 
 # Identify individuals with non-European ancestry
@@ -147,7 +150,7 @@ process.related.pair <- function(x, kinship.thresh, failures.summary, in.imiss.d
         } else {
             id1.fmiss <- in.imiss.df$F_MISS[in.imiss.df$IID == id1]
             id2.fmiss <- in.imiss.df$F_MISS[in.imiss.df$IID == id2]
-            return(c(id1.fmiss <= id2.fmiss, id1.fmiss > id2.fmiss))
+            return(c(id1.fmiss >= id2.fmiss, id1.fmiss < id2.fmiss))
         }
     # Samples insufficiently closely related
     } else {
