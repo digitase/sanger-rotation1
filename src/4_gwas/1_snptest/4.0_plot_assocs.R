@@ -5,16 +5,16 @@
 #
 # Based on /lustre/scratch113/projects/crohns/2015jan20/GWAS_imputation/assoc_NEW/GWAS3/scripts/plot_manhattan.R
 #
+# Run with this bsub command (works with cores=5)
+# bsub -n 5 -R "span[hosts=1] select[mem>20000] rusage[mem=20000]" -M 20000 -o .output/4.0_plot_assocs.bsub_o.log -e .output/4.0_plot_assocs.bsub_e.log "./4.0_plot_assocs.R"
+# Ended up using 14G memory.
+#
 library(data.table)
 library(plyr)
 library(doMC)
 
 source("/lustre/scratch113/projects/crohns/2013Aug07/assoc/qqman.r")
 
-# bsub wrapper will be required to run chroms in parallel
-# Approx. 8GB required per core to read in snptest data
-# Approx. 6GB required per core to plot models in parallel
-# bsub -n 5 -R "span[hosts=1] select[mem>10000] rusage[mem=10000]" -M 10000 -o out.log -e err.log "./4.0_plot_assocs.R"
 doMC::registerDoMC(cores=5)
 
 snptest.out.dir <- "/nfs/users/nfs_b/bb9/workspace/rotation1/src/4_gwas/1_snptest/.output/results.filtered/gwas3/ibd"
