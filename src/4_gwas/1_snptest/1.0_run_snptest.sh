@@ -23,7 +23,7 @@ assoc="ibd"
 # Chunk size in bp
 # Chunks will be run in parallel
 # Orig, 2M = 22h. run 4 times the dfs, so div blocksize by 4, then 2 again to fit in 12h normal queue
-# Max chunk runtime ~8h
+# Max chunk runtime ~11.6 hours with size 200000
 chunk_size=200000
 
 # Dir with info on marker positions, used to calculate chunk coords.
