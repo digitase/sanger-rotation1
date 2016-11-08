@@ -1,5 +1,12 @@
 #!/usr/local/bin/bash
 #
+# BSUB -J 1.0_run_pbwt
+# BSUB -G team152
+# BSUB -R "select[mem>10000] rusage[mem=10000]" -M 10000
+# BSUB -cwd .output
+# BSUB -o 1.0_run_pbwt.bsub_%J_%I_o.log
+# BSUB -e 1.0_run_pbwt.bsub_%J_%I_e.log
+#
 # Impute haplotypes
 #
 
@@ -32,6 +39,7 @@ PANEL_PREFIX="ALL.chr20.integrated_phase1_v3.20101123.snps_indels_svs.genotypes.
 gunzip -c "/lustre/scratch113/projects/crohns/2013Aug07/imputation/reference/ALL.integrated_phase1_v3.20101123.snps_indels_svs.genotypes.nosing/$PANEL_PREFIX.haplotypes.gz" > "$OUT_DIR/$PANEL_PREFIX.haplotypes"
 gunzip -c "/lustre/scratch113/projects/crohns/2013Aug07/imputation/reference/ALL.integrated_phase1_v3.20101123.snps_indels_svs.genotypes.nosing/$PANEL_PREFIX.legend.gz" > "$OUT_DIR/$PANEL_PREFIX.legend"
 
+date && echo Building panel...
 pbwt \
     -log "$OUT_DIR/$PANEL_PREFIX.imputeRef.log" \
     -readHapLegend \
@@ -41,12 +49,14 @@ pbwt \
     -writeAll "$OUT_DIR/$PANEL_PREFIX.imputeRef" \
     -writeImputeRef "$OUT_DIR/$PANEL_PREFIX.imputeRef"
 
-# Perform imputation
-gunzip -c "/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/2_phasing/1_eagle/coreex_gaibdc_usgwas_raw.qc6.maf_0.001.alleles_ordered.no_indel.no_ref_mismatch.phased.vcf.gz" | \
-    bcftools convert -Ou - > "$OUT_DIR/coreex_gaibdc_usgwas_raw.qc6.maf_0.001.alleles_ordered.no_indel.no_ref_mismatch.phased.bcf"
+# Convert vcf.gz to bcf
+# gunzip -c "/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/2_phasing/1_eagle/coreex_gaibdc_usgwas_raw.qc6.maf_0.001.alleles_ordered.no_indel.no_ref_mismatch.phased.vcf.gz" | \
+    # bcftools convert -Ou - > "$OUT_DIR/coreex_gaibdc_usgwas_raw.qc6.maf_0.001.alleles_ordered.no_indel.no_ref_mismatch.phased.bcf"
 
+# Perform imputation
 # Runtime on chr20: 2h, 6Gb memory
 # TODO turn this into a bsub
+date && echo Imputing chr $CHR...
 pbwt \
     -log "$OUT_DIR/$CHR.imputation.log" \
     -checkpoint 10000 \
@@ -54,4 +64,6 @@ pbwt \
     -referenceImpute "$OUT_DIR/$PANEL_PREFIX.imputeRef" \
     -referenceFasta "/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/2_phasing/1_sanger_imputation_service/human_g1k_v37.fasta" \
     -writeBcfGz "$OUT_DIR/$CHR.imputed.bcf.gz"
+
+date && echo Finished.
 

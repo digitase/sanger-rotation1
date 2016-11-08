@@ -1,11 +1,13 @@
 #!/usr/local/bin/bash
 #
 # BSUB -J 1.0_run_eagle
+# BSUB -G team152
 # BSUB -n 16
-# BSUB -R "select[mem>4000] rusage[mem=4000]" -M 4000
+# BSUB -R "span[hosts=1] select[mem>4000] rusage[mem=4000]" -M 4000
 # BSUB -cwd .output
 # BSUB -o 1.0_run_eagle.bsub_%J_%I_o.log
 # BSUB -e 1.0_run_eagle.bsub_%J_%I_e.log
+
 #
 # Phase data with eagle2
 #
@@ -16,10 +18,10 @@ CHR=20
 # Match this in the BSUB header
 N_THREADS=16
 
-IN_DATA_DIR="/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/2_phasing/1_sanger_imputation_service/"
+IN_DATA_DIR="/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/2_phasing/0_prep_data/"
 IN_DATA_PREFIX="coreex_gaibdc_usgwas_raw.qc6.maf_0.001.alleles_ordered.no_indel.no_ref_mismatch"
 
-OUT_DIR="/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/2_phasing/1_eagle/"
+OUT_DIR="/lustre/scratch113/projects/crohns/bb9/2_phasing/1_eagle/"
 mkdir -p "$OUT_DIR"
 
 #
@@ -59,12 +61,12 @@ mkdir -p "$OUT_DIR"
 ln -s "$IN_DATA_DIR/$IN_DATA_PREFIX.vcf" "$OUT_DIR/$IN_DATA_PREFIX.vcf"
 bcftools convert -Ob <"$OUT_DIR/$IN_DATA_PREFIX.vcf" >"$OUT_DIR/$IN_DATA_PREFIX.bcf.gz"
 
-# TODO can change output format using --vcfOutFormat
 eagle \
     --vcf "$OUT_DIR/$IN_DATA_PREFIX.bcf.gz" \
     --geneticMapFile="/nfs/users/nfs_b/bb9/packages/Eagle_v2.3/tables/genetic_map_hg19_withX.txt.gz" \
     --chrom "$CHR" \
     --numThreads "$N_THREADS" \
+    --vcfOutFormat u \
     --outPrefix="$OUT_DIR/$IN_DATA_PREFIX.phased" \
         2>&1 | tee "$OUT_DIR/$IN_DATA_PREFIX.phased.log"
 
