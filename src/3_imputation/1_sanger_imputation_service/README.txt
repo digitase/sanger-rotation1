@@ -1,4 +1,6 @@
 
+DEPRECATED
+
 Result of uploading chr20 VCF: 
 
     /nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/2_phasing/0_prep_data/coreex_gaibdc_usgwas_raw.qc6.maf_0.001.alleles_ordered.no_indel.no_ref_mismatch.vcf

@@ -13,6 +13,8 @@
 # Which chromosome to impute
 CHR=20
 
+PHASED_BCF="/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/2_phasing/1_eagle/coreex_gaibdc_usgwas_raw.qc6.maf_0.001.alleles_ordered.no_indel.no_ref_mismatch.phased.bcf"
+
 OUT_DIR="/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/3_imputation/1_pbwt/"
 mkdir -p "$OUT_DIR"
 
@@ -55,14 +57,13 @@ pbwt \
 
 # Perform imputation
 # Runtime on chr20: 2h, 6Gb memory
-# TODO turn this into a bsub
 date && echo Imputing chr $CHR...
 pbwt \
     -log "$OUT_DIR/$CHR.imputation.log" \
     -checkpoint 10000 \
-    -readVcfGT "$OUT_DIR/coreex_gaibdc_usgwas_raw.qc6.maf_0.001.alleles_ordered.no_indel.no_ref_mismatch.phased.bcf" \
+    -readVcfGT "$PHASED_BCF" \
     -referenceImpute "$OUT_DIR/$PANEL_PREFIX.imputeRef" \
-    -referenceFasta "/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/2_phasing/1_sanger_imputation_service/human_g1k_v37.fasta" \
+    -referenceFasta "/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/2_phasing/0_prep_data/human_g1k_v37.fasta" \
     -writeBcfGz "$OUT_DIR/$CHR.imputed.bcf.gz"
 
 date && echo Finished.

@@ -26,7 +26,7 @@ plots.out.dir <- file.path(snptest.out.dir, "plots")
 dir.create(plots.out.dir)
 setwd(plots.out.dir)
 
-l_ply(list.files(snptest.out.dir, full.names=T), function(snptest.result.file) {
+l_ply(list.files( "/nfs/users/nfs_b/bb9/workspace/rotation1/src/4_gwas/1_snptest/.output/results.filtered/gwas3/ibd", pattern="*.snptest.filtered.out", full.names=T), function(snptest.result.file) {
     
     # Get chr number from filename
     snptest.result.file.basename <- basename(snptest.result.file)
