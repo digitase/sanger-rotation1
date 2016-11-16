@@ -1,0 +1,53 @@
+
+bb9@gen1d:~/workspace/rotation1/src/5_model_comparison/.output/gen$ for i in {1..22}; do zcat /nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/4_gwas/1_snptest/data/$i.gen.gz | wc -l; done
+8423859
+8223313
+7745588
+8036903
+7454360
+7472784
+6876836
+6742059
+5116009
+5617144
+5622342
+5344266
+3940113
+3609085
+2928639
+3488952
+3245913
+2650180
+2224893
+2153277
+1264725
+1303333
+
+SUM = 109 484 573
+
+bb9@gen1d:~/workspace/rotation1/src/5_model_comparison/.output/gen$ for i in {1..22}; do wc -l $i.gen; done
+136736 1.gen
+85038 2.gen
+45477 3.gen
+38369 4.gen
+105368 5.gen
+112484 6.gen
+43987 7.gen
+8648 8.gen
+25334 9.gen
+52122 10.gen
+18810 11.gen
+27316 12.gen
+30386 13.gen
+6990 14.gen
+10054 15.gen
+34875 16.gen
+23913 17.gen
+5576 18.gen
+16704 19.gen
+19168 20.gen
+2422 21.gen
+31225 22.gen
+
+SUM = 881 002
+
