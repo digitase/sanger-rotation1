@@ -2,7 +2,7 @@
 #
 # Run 2.1_run_glm_models.R on a single chunk of snps
 
-out_dir="/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/5_model_comparison/"
+out_dir="/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/4_gwas/2_R_glm/"
 mkdir -p "$out_dir/chunks"
 
 # Which dataset was used
@@ -18,7 +18,7 @@ chunk_size=100
 #
 for ((chr = 1; chr <= 22; chr++)) {
 
-    gen_file="/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/5_model_comparison/gen/$chr.gen"
+    gen_file="$out_dir/gen/$chr.gen"
     n_snps=$(cat $gen_file.[0-9]* | wc -l)
     n_chunks=$(echo $(printf %.0f $(echo $n_snps "/ $chunk_size" | bc)) "+1" | bc)
     date && echo "Chrom $chr ($n_snps snps) will run in $n_chunks chunks of $chunk_size snps."
@@ -28,7 +28,6 @@ for ((chr = 1; chr <= 22; chr++)) {
 
     # bsub a job array over the chunks
     # Mem usage for chunk_size=100 ~ 300-400 MB
-    # Restart on termination by memory limit
     bsub \
         -G team152 -q normal \
         -R "select[mem>500] rusage[mem=500]" -M 500 \

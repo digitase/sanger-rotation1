@@ -10,7 +10,7 @@ library(doMC)
 registerDoMC(cores=2)
 options(stringsAsFactors=F)
 
-out.dir <- "/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/5_model_comparison/"
+out.dir <- "/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/4_gwas/2_R_glm/"
 dir.create(out.dir)
 
 # Load table of known loci

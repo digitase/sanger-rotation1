@@ -1,10 +1,10 @@
 #!/usr/local/bin/bash
 #
-# Output the positions of snps within known loci.
+# Output the ids of significant snps within known loci.
 # Filter .gen files to leave only the genotypes for these loci.
 # Write filtered .gen files in chunks.
 
-out_dir="/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/5_model_comparison/"
+out_dir="/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/4_gwas/2_R_glm/"
 mkdir -p "$out_dir"
 
 # The list of snps contained within known loci per chromosome

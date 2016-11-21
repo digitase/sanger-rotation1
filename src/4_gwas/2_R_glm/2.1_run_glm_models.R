@@ -10,11 +10,11 @@ library(nonnest2)
 # chrom.i <- 1
 # chunk.i <- 1
 # chunk.size <- 100
-# gen.file.dir <- "/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/5_model_comparison/gen/"
+# gen.file.dir <- "/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/4_gwas/2_R_glm/gen/"
 # gen.file <- file.path(gen.file.dir, paste(chrom.i, "gen", sep="."))
 # gen.file.chunk.file <- paste(gen.file, formatC(chunk.i-1, width=10, flag="0"), sep=".")
 # n.snps <- as.numeric(system(paste("wc -l <", gen.file.chunk.file), intern=T))
-# out.dir.base <- "/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/5_model_comparison/"
+# out.dir.base <- "/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/4_gwas/2_R_glm/"
 
 print("----- Args: ------")
 print(commandArgs(T))
