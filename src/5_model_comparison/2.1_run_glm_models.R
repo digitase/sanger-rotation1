@@ -5,18 +5,20 @@ library(plyr)
 library(lmtest)
 library(nonnest2)
 
-# dataset <- "gwas"
+# dataset <- "gwas3"
 # assoc <- "ibd"
 # chrom.i <- 1
-# chunk.i <- 1054
+# chunk.i <- 1
 # chunk.size <- 100
 # gen.file.dir <- "/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/5_model_comparison/gen/"
 # gen.file <- file.path(gen.file.dir, paste(chrom.i, "gen", sep="."))
-# n.snps <- as.numeric(system(paste("wc -l <", gen.file), intern=T))
-# out.dir.base <- "/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/5_model_comparison/chunks/"
+# gen.file.chunk.file <- paste(gen.file, formatC(chunk.i-1, width=10, flag="0"), sep=".")
+# n.snps <- as.numeric(system(paste("wc -l <", gen.file.chunk.file), intern=T))
+# out.dir.base <- "/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/5_model_comparison/"
 
-print("Args:")
+print("----- Args: ------")
 print(commandArgs(T))
+print("------------------")
 dataset <- commandArgs(T)[1]
 assoc <- commandArgs(T)[2]
 chrom.i <- commandArgs(T)[3]
@@ -25,7 +27,7 @@ chunk.size <- as.numeric(commandArgs(T)[4])
 gen.file <- commandArgs(T)[5]
 n.snps <- as.numeric(commandArgs(T)[6])
 out.dir.base <- commandArgs(T)[7]
-print(paste("LSB_JOBINDEX (chunk) number is:", chunk.i))
+print(paste("LSB_JOBINDEX (chunk.i + 1) is:", chunk.i))
 
 # Convert gen genotype encoding (3 col)
 # > gen.dt[1, 1:10, with=F]
@@ -67,12 +69,11 @@ genToDosage <- function(gen.dt, models=c("add", "dom", "rec", "het", "gen")) {
 }
 
 # Likelihood ratio test for nested GLMs
-lrTest <- function(m, null) {
-    1 - pchisq(null$deviance - m$deviance, null$df.residual - m$df.residual)
+lrTest <- function(m, null.model) {
+    1 - pchisq(null.model$deviance - m$deviance, null.model$df.residual - m$df.residual)
 }
 
 getModelSummary <- function(model, null.model, terms=c("geno.add"), prefix="ADD") {
-    nested <- all(labels(terms(null.model)) %in% labels(terms(model)))
     result <- c()
     for (term in terms) {
         # Get p value, coefficient estimates with std err
@@ -94,11 +95,12 @@ getModelSummary <- function(model, null.model, terms=c("geno.add"), prefix="ADD"
             )
         }
     }
+    nested <- all(labels(terms(null.model)) %in% labels(terms(model)))
     result <- c(
         result,
         # Report deviances
         deviance=model$deviance,
-        deviance.null=null.model$deviance,
+        # deviance.null=null.model$deviance,
         # Report LRT against the provided null model, only valid if models are nested
         pValue.LRT=ifelse(nested, lrTest(model, null.model), NA),
         # Report ICs
@@ -116,7 +118,8 @@ getModelSummary <- function(model, null.model, terms=c("geno.add"), prefix="ADD"
 }
 
 # Perform test of model1 vs model2.
-# H0: model1 is the correct model
+# H0: Model fits are equal
+# H1: Alternate model 2 fits better than model 1
 compareModels <- function(model1, model2, prefix1="ADD", prefix2="DOM", nested=F) {
     #
     # Handler to suppress warnings due to glm objects having the lm class too.
@@ -125,8 +128,9 @@ compareModels <- function(model1, model2, prefix1="ADD", prefix2="DOM", nested=F
         if (grepl("the condition has length > 1 and only the first element will be used", w)) invokeRestart("muffleWarning")
     }
     # Tests based on Vuong’s (1989) theory of non-nested model comparison 
-    # vuongtest.result <- suppressWarnings(vuongtest(model1, model2, nested=nested))
-    vuongtest.result <- withCallingHandlers(vuongtest(model1, model2, nested=nested), warning=handler)
+    # The test is whether the first argument fits better than the second argument.
+    # vuongtest.result <- suppressWarnings(vuongtest(model2, model1, nested=nested))
+    vuongtest.result <- withCallingHandlers(vuongtest(model2, model1, nested=nested), warning=handler)
     # Variance test to determine if models are distinguishable...
     pValue.vuongtest.varTest <- vuongtest.result$p_omega
     # Perform LRT.
@@ -138,35 +142,45 @@ compareModels <- function(model1, model2, prefix1="ADD", prefix2="DOM", nested=F
     pValue.vuongtest.LRT <- vuongtest.result$p_LRT$A
     #
     # Also obtain CI on the difference in AIC/BIC
+    # Note: if models are nested or if the "variance test" from
+    # ‘vuongtest()’ indicates models are indistinguishable, then the
+    # intervals returned from ‘icci()’ will be incorrect.
     #
     icci.result <- icci(model1, model2, conf.level=0.95)
     AIC2 <- icci.result$AIC$AIC2
-    AICci.lower <- icci.result$AICci[1]
-    AICci.upper <- icci.result$AICci[2]
     BIC2 <- icci.result$BIC$BIC2
-    BICci.lower <- icci.result$BICci[1]
-    BICci.upper <- icci.result$BICci[2]
+    if (nested) {
+        AICci.lower <- NA
+        AICci.upper <- NA
+        BICci.lower <- NA
+        BICci.upper <- NA
+    } else {
+        AICci.lower <- icci.result$AICci[1]
+        AICci.upper <- icci.result$AICci[2]
+        BICci.lower <- icci.result$BICci[1]
+        BICci.upper <- icci.result$BICci[2]
+    }
     #
-    # Perform coxtest and jtests:
-    # Under the assumption that model1 contains the contains the correct set of regressors,
+    # Perform coxtest and jtests to attempt to reject model1:
+    # Under the assumption that the first argument contains the contains the correct set of regressors,
+    # tests whether considering the second argument provides a significant improvement.
     #
-    # tests whether the model2 provides a significant improvement.
-    # pValue.coxtest <- coxtest(model1, model2)["fitted(M1) ~ M2", "Pr(>|z|)"]
-    # pValue.jtest <- jtest(model1, model2)["M1 + fitted(M2)", "Pr(>|t|)"]
+    pValue.coxtest <- coxtest(model1, model2)["fitted(M1) ~ M2", "Pr(>|z|)"]
+    pValue.jtest <- jtest(model1, model2)["M1 + fitted(M2)", "Pr(>|t|)"]
     #
     # Collate test results
     #
     result <- c(
-        pValue.vuongtest.varTest=pValue.vuongtest.varTest,
-        pValue.vuongtest.LRT=pValue.vuongtest.LRT,
         AIC2=AIC2,
         AICci.lower=AICci.lower,
         AICci.upper=AICci.upper,
         BIC2=BIC2,
         BICci.lower=BICci.lower,
-        BICci.upper=BICci.upper
-        # pValue.coxtest=pValue.coxtest,
-        # pValue.jtest=pValue.jtest
+        BICci.upper=BICci.upper,
+        pValue.vuongtest.varTest=pValue.vuongtest.varTest,
+        pValue.vuongtest.LRT=pValue.vuongtest.LRT,
+        pValue.coxtest=pValue.coxtest,
+        pValue.jtest=pValue.jtest
     )
     names(result) <- paste(prefix1, prefix2, names(result), sep="_")
     return(data.frame(t(result)))
@@ -175,7 +189,7 @@ compareModels <- function(model1, model2, prefix1="ADD", prefix2="DOM", nested=F
 # Read in phenotype and covariates .sample file
 sample.dt <- fread("/lustre/scratch113/projects/crohns/2015jan20/GWAS_imputation/assoc_NEW/GWAS3/refs/GWAS3.ibd.sample", header=F, skip=2)
 n.samples <- nrow(sample.dt)
-colnames(sample.dt) <- colnames(fread("/lustre/scratch113/projects/crohns/2015jan20/GWAS_imputation/assoc_NEW/GWAS3/refs/GWAS3.ibd.sample", header=T, nrows=1))
+colnames(sample.dt) <- colnames(fread("/lustre/scratch113/projects/crohns/2015jan20/GWAS_imputation/assoc_NEW/GWAS3/refs/GWAS3.ibd.sample", header=T, nrows=0))
 
 # Standarise covariates
 for (n in colnames(sample.dt)) {
@@ -186,13 +200,17 @@ for (n in colnames(sample.dt)) {
 
 # Create outdir for chunk
 print(paste("Processing chr", chrom.i, "in", ceiling(n.snps/chunk.size), "chunks..."))
-chunk.out.dir <- file.path(out.dir.base, dataset, assoc, chrom.i)
+chunk.out.dir <- file.path(out.dir.base, "chunks", dataset, assoc, chrom.i)
 dir.create(chunk.out.dir, recursive=T)
 
 # Read in genotypes .gen file for chunk
-chunk.starts <- seq(1, n.snps, chunk.size)
-chunk.start <- chunk.starts[chunk.i]
-gen.dt <- fread(gen.file, sep=" ", skip=chunk.start-1, nrow=chunk.size)
+gen.file.chunk.file <- paste(gen.file, formatC(chunk.i-1, width=10, flag="0"), sep=".")
+print(paste("Reading chunk file:", gen.file.chunk.file))
+# chunk.starts <- seq(1, n.snps, chunk.size)
+# chunk.start <- chunk.starts[chunk.i]
+# gen.dt <- fread(gen.file.chunk.file, sep=" ", skip=chunk.start-1, nrow=chunk.size)
+gen.dt <- fread(gen.file.chunk.file, sep=" ")
+
 # Check that we have all genotypes
 stopifnot((ncol(gen.dt) - 5)/3 == n.samples)
 
@@ -223,17 +241,21 @@ chunk.results <- ldply(1:nrow(gen.dt), function(snp.i) {
     # Report 95% conf. intervals of difference in AIC/BIC to additive model
     # Report model distinguishability and vuong robust LRT 
     cbind(
+        NULL_deviance=model.null$deviance,
         getModelSummary(model.add, null.model=model.null, terms=c("geno.add"), prefix="ADD"),
         getModelSummary(model.dom, null.model=model.null, terms=c("geno.dom"), prefix="DOM"),
         getModelSummary(model.rec, null.model=model.null, terms=c("geno.rec"), prefix="REC"),
         getModelSummary(model.het, null.model=model.null, terms=c("geno.het"), prefix="HET"),
-        getModelSummary(model.gen, null.model=model.add, terms=c("geno.add", "geno.rec"), prefix="GEN"),
-        ADD_AIC1=AIC(model.add),
-        ADD_BIC1=BIC(model.add),
-        compareModels(model.add, model.dom, prefix2="DOM", nested=F),
-        compareModels(model.add, model.rec, prefix2="REC", nested=F),
-        compareModels(model.add, model.het, prefix2="HET", nested=F),
-        compareModels(model.add, model.gen, prefix2="GEN", nested=T)
+        getModelSummary(model.gen, null.model=model.null, terms=c("geno.add", "geno.rec"), prefix="GEN"),
+        NULL_AIC1=AIC(model.null),
+        NULL_BIC1=BIC(model.null),
+        # Test whether model2 fits better
+        compareModels(model.null, model.add, prefix1="NULL", prefix2="ADD", nested=T),
+        compareModels(model.add, model.dom, prefix1="ADD", prefix2="DOM", nested=F),
+        compareModels(model.add, model.rec, prefix1="ADD", prefix2="REC", nested=F),
+        compareModels(model.add, model.het, prefix1="ADD", prefix2="HET", nested=F),
+        compareModels(model.add, model.gen, prefix1="ADD", prefix2="GEN", nested=T),
+        ADD_GEN_pValue.LRT=lrTest(model.gen, null.model=model.add)
     )
 
 }, .parallel=F)
