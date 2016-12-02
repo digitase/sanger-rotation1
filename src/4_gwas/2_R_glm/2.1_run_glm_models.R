@@ -4,11 +4,12 @@ library(data.table)
 library(plyr)
 library(lmtest)
 library(nonnest2)
+library(Rmpfr)
 
 # dataset <- "gwas3"
 # assoc <- "ibd"
-# chrom.i <- 1
-# chunk.i <- 1
+# chrom.i <- 16
+# chunk.i <- 459
 # chunk.size <- 100
 # gen.file.dir <- "/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/4_gwas/2_R_glm/gen/"
 # gen.file <- file.path(gen.file.dir, paste(chrom.i, "gen", sep="."))
@@ -44,6 +45,10 @@ genToDosage <- function(gen.dt, models=c("add", "dom", "rec", "het", "gen")) {
     dosage <- list()
     if ("gen" %in% models) {
         # General model requires these to be built
+        # Equivalent models: 
+            # codominant = dominant + recessive
+            # codominant = additive + recessive
+            # codominant = additive + dominant
         models <- c(models, "add", "rec")
     }
     if ("add" %in% models) {
@@ -69,8 +74,11 @@ genToDosage <- function(gen.dt, models=c("add", "dom", "rec", "het", "gen")) {
 }
 
 # Likelihood ratio test for nested GLMs
+# Reports result = log(1 - p) due to precision limits.
+# The equiv test for significance on result should be result > log(1 - 5e-8)
 lrTest <- function(m, null.model) {
-    1 - pchisq(null.model$deviance - m$deviance, null.model$df.residual - m$df.residual)
+    result <- pchisq(null.model$deviance - m$deviance, null.model$df.residual - m$df.residual, log.p=T)
+    asNumeric(1 - 10 ** mpfr(result, precBits=2**10))
 }
 
 getModelSummary <- function(model, null.model, terms=c("geno.add"), prefix="ADD") {
@@ -161,12 +169,25 @@ compareModels <- function(model1, model2, prefix1="ADD", prefix2="DOM", nested=F
         BICci.upper <- icci.result$BICci[2]
     }
     #
-    # Perform coxtest and jtests to attempt to reject model1:
+    # Perform non nested model comparisons to attempt to reject model1:
     # Under the assumption that the first argument contains the contains the correct set of regressors,
     # tests whether considering the second argument provides a significant improvement.
     #
-    pValue.coxtest <- coxtest(model1, model2)["fitted(M1) ~ M2", "Pr(>|z|)"]
-    pValue.jtest <- jtest(model1, model2)["M1 + fitted(M2)", "Pr(>|t|)"]
+    if (nested) {
+        pValue.coxtest <- NA
+        pValue.coxtest.converse <- NA
+        pValue.jtest <- NA
+        pValue.jtest.converse <- NA
+        # pValue.encomptest <- NA
+        # pValue.encomptest.converse <- NA
+    } else {
+        pValue.coxtest <- coxtest(model1, model2)["fitted(M1) ~ M2", "Pr(>|z|)"]
+        pValue.coxtest.converse <- coxtest(model1, model2)["fitted(M2) ~ M1", "Pr(>|z|)"]
+        pValue.jtest <- jtest(model1, model2)["M1 + fitted(M2)", "Pr(>|t|)"]
+        pValue.jtest.converse <- jtest(model1, model2)["M2 + fitted(M1)", "Pr(>|t|)"]
+        # pValue.encomptest <- encomptest(model1, model2)$"Pr(>F)"[1]
+        # pValue.encomptest.converse <- encomptest(model1, model2)$"Pr(>F)"[2]
+    }
     #
     # Collate test results
     #
@@ -180,7 +201,11 @@ compareModels <- function(model1, model2, prefix1="ADD", prefix2="DOM", nested=F
         pValue.vuongtest.varTest=pValue.vuongtest.varTest,
         pValue.vuongtest.LRT=pValue.vuongtest.LRT,
         pValue.coxtest=pValue.coxtest,
-        pValue.jtest=pValue.jtest
+        pValue.coxtest.converse=pValue.coxtest.converse,
+        pValue.jtest=pValue.jtest,
+        pValue.jtest.converse=pValue.jtest.converse
+        # pValue.encomptest=pValue.encomptest,
+        # pValue.encomptest.converse=pValue.encomptest.converse
     )
     names(result) <- paste(prefix1, prefix2, names(result), sep="_")
     return(data.frame(t(result)))
@@ -223,6 +248,7 @@ model.null <- glm(bin1 ~ cov1+cov2+cov3+cov4+cov5+cov6+cov7+cov8+cov9+cov10, fam
 
 chunk.results <- ldply(1:nrow(gen.dt), function(snp.i) {
 
+    # snp.i <- 21
     print(paste(date(), " | Testing snp: ", snp.i, " for: chr_", chrom.i, ".chunk_i_", chunk.i, ".glm_R.out", sep=""))
 
     geno.add <- unlist(dosage.dt$add[snp.i])
