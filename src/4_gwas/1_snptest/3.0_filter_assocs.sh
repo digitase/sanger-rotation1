@@ -33,6 +33,8 @@
 dataset="gwas3"
 # Which samples to include
 # Set to "cd", "uc", or "ibd"
+# assoc="cd"
+# assoc="uc"
 assoc="ibd"
 
 OUT_DIR="/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/4_gwas/1_snptest/"

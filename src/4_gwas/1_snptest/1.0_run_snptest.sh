@@ -19,6 +19,8 @@ dataset="gwas3"
 # Which samples to include
 # Set to "cd", "uc", or "ibd"
 assoc="ibd"
+# assoc="cd"
+# assoc="uc"
 
 # Chunk size in bp
 # Chunks will be run in parallel
