@@ -8,7 +8,8 @@ out_dir="/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/4_gwas/2_R_gl
 mkdir -p "$out_dir"
 
 # The list of snps contained within known loci per chromosome
-contained_snps="$out_dir/contained.snps.txt"
+contained_snps="$out_dir/contained.snps.all.txt"
+# contained_snps="$out_dir/contained.snps.signif.txt"
 
 # Output unique snp ids within each chr
 mkdir -p "$out_dir/snp_ids"

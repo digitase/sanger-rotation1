@@ -108,5 +108,6 @@ print(paste("topSNPs in known loci table:", nrow(knownLoci.dt)))
 print(paste("topSNPs found in snptest results:", sum(knownLoci.snptest.results$is.topsnp)))
 knownLoci.snptest.results.filtered <- knownLoci.snptest.results[models.signif | is.topsnp]
 print(paste("SNPs that reached the locus pvalue threshold in at least one model OR is topSNP:", nrow(knownLoci.snptest.results.filtered)))
-write.table(knownLoci.snptest.results.filtered, file.path(out.dir, "contained.snps.txt"), sep="\t", row.names=F)
+write.table(knownLoci.snptest.results, file.path(out.dir, "contained.snps.all.txt"), sep="\t", row.names=F)
+write.table(knownLoci.snptest.results.filtered, file.path(out.dir, "contained.snps.signif.txt"), sep="\t", row.names=F)
 
