@@ -7,6 +7,7 @@ library(ggplot2)
 library(gplots)
 library(gridExtra)
 library(irr)
+library(doMC)
 
 dataset <- "gwas3"
 assoc <- "ibd"
@@ -355,41 +356,62 @@ merged.results.dt[, better.HET := better[, HET.BIC]]
 # This is the lowest BIC of significant non additive models.
 # Report this lowest BIC.
 #
-# best.BIC.models <- alply(merged.results.dt, 1, function(x) {
-    # modelNames <- c("DOM", "REC", "GEN", "HET")
-    # BICs <- with(x, c(ADD_DOM_BIC2, ADD_REC_BIC2, ADD_GEN_BIC2, ADD_HET_BIC2))
-    # betters <- with(x, c(better.DOM, better.REC, better.GEN, better.HET))
-    # if(length(bestBIC)) {
-        # result <- min(bestBIC)
-        # names(result) <- modelNames[which(BICs == min(bestBIC))][1]
-    # } else {
-        # result <- x$NULL_ADD_BIC2
-        # names(result) <- "ADD"
-    # }
-    # return(result)
-# }, .progress="text")
+registerDoMC(cores=8)
+merged.results.dt <- adply(merged.results.dt, 1, function(x) {
+    modelNames <- c("DOM", "REC", "GEN", "HET")
+    BICs <- with(x, c(ADD_DOM_BIC2, ADD_REC_BIC2, ADD_GEN_BIC2, ADD_HET_BIC2))
+    pValues <- with(x, c(frequentist_add_pvalue, frequentist_rec_pvalue, frequentist_gen_pvalue, frequentist_het_pvalue))
+    betters <- with(x, c(better.DOM, better.REC, better.GEN, better.HET))
+    bestBIC <- BICs[betters]
+    bestPValue <- pValues[betters]
+    if(length(bestBIC)) {
+        return(data.frame(
+            best.model = modelNames[which(BICs == min(bestBIC))][1],
+            best.BIC = min(bestBIC),
+            best.pValue = min(bestPValue)
+        ))
+    } else {
+        return(data.frame(
+            best.model = "ADD",
+            best.BIC = x$NULL_ADD_BIC2,
+            best.pValue = x$frequentist_add_pvalue
+        ))
+    }
+}, .parallel=T)
 
 # Get best non additive model, BIC, and evidence for non additivity with that model
-non.add.BICs <- merged.results.dt[, .(ADD_DOM_BIC2, ADD_REC_BIC2, ADD_GEN_BIC2, ADD_HET_BIC2)]
-min.BIC.col <- max.col(-non.add.BICs, ties.method="first")
-min.BIC.model <- c("DOM", "REC", "GEN", "HET")[min.BIC.col]
-min.BIC.BICs <- data.frame(merged.results.dt[, .(ADD_DOM_BIC2, ADD_REC_BIC2, ADD_GEN_BIC2, ADD_HET_BIC2)])[cbind(1:nrow(merged.results.dt), min.BIC.col)]
-min.BIC.pValues <- data.frame(merged.results.dt[, .(frequentist_add_pvalue, frequentist_rec_pvalue, frequentist_gen_pvalue, frequentist_het_pvalue)])[cbind(1:nrow(merged.results.dt), min.BIC.col)]
-min.BIC.better <- data.frame(merged.results.dt[, .(better.DOM, better.REC, better.GEN, better.HET)])[cbind(1:nrow(merged.results.dt), min.BIC.col)]
+# TODO this is a much faster version, but unfinished
+non.add.BICs <- as.matrix(merged.results.dt[, .(ADD_DOM_BIC2, ADD_REC_BIC2, ADD_GEN_BIC2, ADD_HET_BIC2)])
+non.add.better <- as.matrix(merged.results.dt[, .(better.DOM, better.REC, better.GEN, better.HET)])
+non.add.BICs.masked <- ifelse(non.add.better, non.add.BICs, NA)
+best.models <- apply(non.add.BICs.masked, 1, function(x) {
+    if(all(is.na(x))) {
+        return(NA)
+    } else {
+        return(sub("^better.", "", names(x)[which.min(x)]))
+    }
+})
 
+# Get best non additive model, BIC, and evidence for non additivity with that model
+# non.add.BICs <- merged.results.dt[, .(ADD_DOM_BIC2, ADD_REC_BIC2, ADD_GEN_BIC2, ADD_HET_BIC2)]
+# min.BIC.col <- max.col(-non.add.BICs, ties.method="first")
+# min.BIC.model <- c("DOM", "REC", "GEN", "HET")[min.BIC.col]
+# min.BIC.BICs <- data.frame(merged.results.dt[, .(ADD_DOM_BIC2, ADD_REC_BIC2, ADD_GEN_BIC2, ADD_HET_BIC2)])[cbind(1:nrow(merged.results.dt), min.BIC.col)]
+# min.BIC.pValues <- data.frame(merged.results.dt[, .(frequentist_add_pvalue, frequentist_rec_pvalue, frequentist_gen_pvalue, frequentist_het_pvalue)])[cbind(1:nrow(merged.results.dt), min.BIC.col)]
+# min.BIC.better <- data.frame(merged.results.dt[, .(better.DOM, better.REC, better.GEN, better.HET)])[cbind(1:nrow(merged.results.dt), min.BIC.col)]
 # Set best models for each snp
-merged.results.dt$best.model <- "ADD"
-merged.results.dt$best.model[min.BIC.better] <- min.BIC.model[min.BIC.better]
-merged.results.dt$best.BIC <- merged.results.dt$NULL_ADD_BIC2
-merged.results.dt$best.BIC[min.BIC.better] <- min.BIC.BICs[min.BIC.better]
-merged.results.dt$best.pValue <- merged.results.dt$frequentist_add_pvalue
-merged.results.dt$best.pValue[min.BIC.better] <- min.BIC.pValues[min.BIC.better]
-merged.results.dt$best.BIC.decrease <- merged.results.dt$NULL_ADD_BIC2 - merged.results.dt$best.BIC
+# merged.results.dt$best.model <- "ADD"
+# merged.results.dt$best.model[min.BIC.better] <- min.BIC.model[min.BIC.better]
+# merged.results.dt$best.BIC <- merged.results.dt$NULL_ADD_BIC2
+# merged.results.dt$best.BIC[min.BIC.better] <- min.BIC.BICs[min.BIC.better]
+# merged.results.dt$best.pValue <- merged.results.dt$frequentist_add_pvalue
+# merged.results.dt$best.pValue[min.BIC.better] <- min.BIC.pValues[min.BIC.better]
 
 # @@@@@
 # Summary of which model is best
 table(merged.results.dt$best.model)
 # Distribution of how much of a BIC decrease is achieved with the best model
+merged.results.dt$best.BIC.decrease <- merged.results.dt$NULL_ADD_BIC2 - merged.results.dt$best.BIC
 hist(merged.results.dt[best.BIC.decrease > 0, best.BIC.decrease], breaks=50)
 
 #
@@ -397,10 +419,6 @@ hist(merged.results.dt[best.BIC.decrease > 0, best.BIC.decrease], breaks=50)
 # Consider the known topsnps and the gwas3 topsnps.
 # Do any of them show evidence for a non additive model being better?
 #
-merged.results.dt[is.topsnp.known == T & best.model != "ADD"]
-merged.results.dt[is.topsnp.observed == T & best.model != "ADD"]
-
-# What if we require genome wide significance?
 merged.results.dt[is.topsnp.known == T & best.model != "ADD" & signif.gwas.thresh]
 merged.results.dt[is.topsnp.observed == T & best.model != "ADD" & signif.gwas.thresh]
 # 161479745_A_G rs1801274
@@ -413,11 +431,11 @@ merged.results.dt[is.topsnp.observed == T & best.model != "ADD" & signif.gwas.th
 
 # Rankings of snps by BIC and p value are concordant
 grid.arrange(
-    qplot(log10(merged.results.dt[signif.gwas.thresh == T, frequentist_add_pvalue]), merged.results.dt[signif.gwas.thresh == T, NULL_ADD_BIC2]),
-    qplot(log10(merged.results.dt[signif.gwas.thresh == T, frequentist_dom_pvalue]), merged.results.dt[signif.gwas.thresh == T, ADD_DOM_BIC2]),
-    qplot(log10(merged.results.dt[signif.gwas.thresh == T, frequentist_rec_pvalue]), merged.results.dt[signif.gwas.thresh == T, ADD_REC_BIC2]),
-    qplot(log10(merged.results.dt[signif.gwas.thresh == T, frequentist_gen_pvalue]), merged.results.dt[signif.gwas.thresh == T, ADD_GEN_BIC2]),
-    qplot(log10(merged.results.dt[signif.gwas.thresh == T, frequentist_het_pvalue]), merged.results.dt[signif.gwas.thresh == T, ADD_HET_BIC2]),
+    qplot(rank(log10(merged.results.dt[signif.gwas.thresh == T, frequentist_add_pvalue])), rank(merged.results.dt[signif.gwas.thresh == T, NULL_ADD_BIC2])),
+    qplot(rank(log10(merged.results.dt[signif.gwas.thresh == T, frequentist_dom_pvalue])), rank(merged.results.dt[signif.gwas.thresh == T, ADD_DOM_BIC2])),
+    qplot(rank(log10(merged.results.dt[signif.gwas.thresh == T, frequentist_rec_pvalue])), rank(merged.results.dt[signif.gwas.thresh == T, ADD_REC_BIC2])),
+    qplot(rank(log10(merged.results.dt[signif.gwas.thresh == T, frequentist_gen_pvalue])), rank(merged.results.dt[signif.gwas.thresh == T, ADD_GEN_BIC2])),
+    qplot(rank(log10(merged.results.dt[signif.gwas.thresh == T, frequentist_het_pvalue])), rank(merged.results.dt[signif.gwas.thresh == T, ADD_HET_BIC2])),
     nrow=2, ncol=3
 )
 
@@ -440,6 +458,22 @@ merged.results.dt[
         signif.gwas.thresh
     )
 ]
+
+merged.results.dt[
+    best.BIC.decrease > 30, 
+    .(
+        rsid, locus.id, 
+        is.topsnp.known, is.topsnp.observed, 
+        best.model, 
+        frequentist_add_pvalue, best.pValue, 
+        best.BIC.decrease, 
+        ADD.BIC.rank, best.BIC.rank, 
+        signif.gwas.thresh
+    )
+]
+
+# Loci that the non additive effects lie 
+merged.results.dt[(better.DOM | better.REC | better.HET | better.GEN) & signif.gwas.thresh, ]
 
 # There are 2 snps in the output.
 # One is a known topsnp.
@@ -482,11 +516,6 @@ cor.test(log10(merged.results.onlySignif.dt[best.model == "HET", frequentist_het
 
 # @@@@@
 (merged.results.onlySignif.dt[better.DOM | better.REC | better.HET | better.GEN, .(rsid, locus.id)])
-
-# @@@@@
-# Loci that the non additive effects lie in
-unique(merged.results.onlySignif.dt[better.DOM | better.REC | better.HET | better.GEN, locus.id])
-# [1] "1_161460211_161638410" "6_31011373_32778656"   "8_49047317_49206289"
 
 merged.results.onlySignif.dt[is.topsnp.known == T, ]
 merged.results.onlySignif.dt[is.topsnp.observed == T, ]
