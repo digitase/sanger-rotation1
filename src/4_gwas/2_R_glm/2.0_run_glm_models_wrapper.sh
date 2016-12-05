@@ -8,19 +8,22 @@ mkdir -p "$out_dir/chunks"
 # Which dataset was used
 dataset="gwas3"
 # Which samples to include
-# Set to "cd", "uc", or "ibd"
 assoc="ibd"
+assoc="uc"
+assoc="cd"
 # Chunk size in number of SNPs
 chunk_size=100
+
+# TODO refactor stuff like /gen/$dataset/$assoc
 
 #
 # Which chromosomes to run
 #
 for ((chr = 1; chr <= 22; chr++)) {
 
-    gen_file="$out_dir/gen/$chr.gen"
+    gen_file="$out_dir/gen/$dataset/$assoc/$chr.gen"
     n_snps=$(cat $gen_file.[0-9]* | wc -l)
-    n_chunks=$(echo $(printf %.0f $(echo $n_snps "/ $chunk_size" | bc)) "+1" | bc)
+    n_chunks=$(echo $(printf %.0f $(echo "($n_snps - 1)/$chunk_size + 1" | bc)))
     date && echo "Chrom $chr ($n_snps snps) will run in $n_chunks chunks of $chunk_size snps."
 
     # Make logging dir

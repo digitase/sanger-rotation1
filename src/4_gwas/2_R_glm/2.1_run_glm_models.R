@@ -7,12 +7,12 @@ library(nonnest2)
 library(Rmpfr)
 
 # dataset <- "gwas3"
-# assoc <- "ibd"
+# assoc <- "cd"
 # chrom.i <- 16
-# chunk.i <- 459
+# chunk.i <- 1
 # chunk.size <- 100
 # gen.file.dir <- "/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/4_gwas/2_R_glm/gen/"
-# gen.file <- file.path(gen.file.dir, paste(chrom.i, "gen", sep="."))
+# gen.file <- file.path(gen.file.dir, dataset, assoc, paste(chrom.i, "gen", sep="."))
 # gen.file.chunk.file <- paste(gen.file, formatC(chunk.i-1, width=10, flag="0"), sep=".")
 # n.snps <- as.numeric(system(paste("wc -l <", gen.file.chunk.file), intern=T))
 # out.dir.base <- "/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/4_gwas/2_R_glm/"
@@ -35,10 +35,16 @@ print(paste("LSB_JOBINDEX (chunk.i + 1) is:", chunk.i))
    # V1              V2       V3 V4 V5 V6 V7 V8 V9  V10
 # 1: 22 22:21910280_T_C 21910280  T  C  1  0  0  0 0.65
 # to expected number of copies
-genToDosage <- function(gen.dt, models=c("add", "dom", "rec", "het", "gen")) {
+genToDosage <- function(gen.dt, models=c("add", "dom", "rec", "het", "gen"), subset=NULL) {
     refHomo.probs <- gen.dt[, seq(6, ncol(gen.dt), 3), with=F]
     het.probs <- gen.dt[, seq(7, ncol(gen.dt), 3), with=F]
     altHomo.probs <- gen.dt[, seq(8, ncol(gen.dt), 3), with=F]
+    # Subset out cd or uc samples
+    if (length(subset)) {
+        refHomo.probs <- refHomo.probs[, subset, with=F]
+        het.probs <- het.probs[, subset, with=F]
+        altHomo.probs <- altHomo.probs[, subset, with=F]
+    }
     # Get locations of missing data, denoted by 0 0 0 code
     total.probs <- refHomo.probs + het.probs + altHomo.probs
     # Convert to expected number of copies of the alt 
@@ -211,10 +217,17 @@ compareModels <- function(model1, model2, prefix1="ADD", prefix2="DOM", nested=F
     return(data.frame(t(result)))
 }
 
-# Read in phenotype and covariates .sample file
-sample.dt <- fread("/lustre/scratch113/projects/crohns/2015jan20/GWAS_imputation/assoc_NEW/GWAS3/refs/GWAS3.ibd.sample", header=F, skip=2)
-n.samples <- nrow(sample.dt)
-colnames(sample.dt) <- colnames(fread("/lustre/scratch113/projects/crohns/2015jan20/GWAS_imputation/assoc_NEW/GWAS3/refs/GWAS3.ibd.sample", header=T, nrows=0))
+# Phenotype and covariates .sample file
+# All IBD samples.
+all.samples.file <- "/lustre/scratch113/projects/crohns/2015jan20/GWAS_imputation/assoc_NEW/GWAS3/refs/GWAS3.ibd.sample"
+# Samples specific to assoc.
+samples.file <- paste("/lustre/scratch113/projects/crohns/2015jan20/GWAS_imputation/assoc_NEW/GWAS3/refs/GWAS3", assoc, "sample", sep=".")
+
+all.samples.dt <- fread(all.samples.file, header=F, skip=2)
+colnames(all.samples.dt) <- colnames(fread(all.samples.file, header=T, nrows=0))
+
+sample.dt <- fread(samples.file, header=F, skip=2)
+colnames(sample.dt) <- colnames(fread(samples.file, header=T, nrows=0))
 
 # Standarise covariates
 for (n in colnames(sample.dt)) {
@@ -236,11 +249,12 @@ print(paste("Reading chunk file:", gen.file.chunk.file))
 # gen.dt <- fread(gen.file.chunk.file, sep=" ", skip=chunk.start-1, nrow=chunk.size)
 gen.dt <- fread(gen.file.chunk.file, sep=" ")
 
-# Check that we have all genotypes
-stopifnot((ncol(gen.dt) - 5)/3 == n.samples)
+# Convert to dosages, applying subsetting to match .sample file
+dosage.dt <- genToDosage(gen.dt, subset=match(sample.dt$ID_1, all.samples.dt$ID_1))
 
-# Convert to dosages
-dosage.dt <- genToDosage(gen.dt)
+# Check that we have all genotypes
+stopifnot((ncol(gen.dt) - 5)/3 == nrow(all.samples.dt))
+stopifnot(ncol(dosage.dt$add) == nrow(sample.dt))
 
 # Fit a logistic regression with covariates for each site
 # Note the the default glm logit is the logistic function

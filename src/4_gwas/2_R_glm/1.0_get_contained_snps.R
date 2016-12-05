@@ -7,8 +7,15 @@ library(data.table)
 library(plyr)
 library(doMC)
 
-registerDoMC(cores=2)
+registerDoMC(cores=8)
 options(stringsAsFactors=F)
+
+# TODO
+dataset <- "gwas3"
+
+assoc <- "ibd"
+# assoc <- "uc"
+# assoc <- "cd"
 
 out.dir <- "/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/4_gwas/2_R_glm/"
 dir.create(out.dir)
@@ -20,19 +27,29 @@ knownLoci.dt$locus.id <- paste(knownLoci.dt$Chr, knownLoci.dt$"LD_left", knownLo
 setkey(knownLoci.dt, Chr, LD_left, LD_right)
 
 # Read in snptest rows within known loci
-knownLoci.snptest.results <- data.table(ldply(list.files("/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/4_gwas/1_snptest/results.filtered/gwas3/ibd/", pattern="*.snptest.filtered.out", full.names=T), function(snptest.result.file) {
-# knownLoci.snptest.results <- data.table(ldply(list.files("/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/4_gwas/1_snptest/results.filtered/gwas3/ibd/", pattern="*.snptest.filtered.out", full.names=T)[14:15], function(snptest.result.file) {
-    print(paste("Processing", snptest.result.file))
-    snptest.result.dt <- fread(snptest.result.file, header=T)
+knownLoci.snptest.results <- data.table(ldply(list.files(file.path("/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/4_gwas/1_snptest/results.filtered/gwas3/", assoc), pattern="*.snptest.filtered.out", full.names=T), function(snptest.result.file) {
+
+    # snptest.result.file <- data.table(ldply(list.files(file.path("/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/4_gwas/1_snptest/results.filtered/gwas3/", assoc), pattern="*.snptest.filtered.out", full.names=T)[14]
+
+    # print(paste("Processing", snptest.result.file))
+    snptest.result.dt <- fread(snptest.result.file, header=T, showProgress=F)
+
+    # TODO Actually we do this upstream as we operate only on filtered snptest results
+    # Filter out snps based on list of excluded snps
+    # Filtering was done based on MAF < 0.001 and info < 0.4, see: /lustre/scratch113/projects/crohns/2015jan20/GWAS_imputation/info/README
+    # chr.num <- gsub(".snptest.filtered.out$", "", gsub("^chr_", "", basename(snptest.result.file)))
+    # foo <- fread(file.path("/lustre/scratch113/projects/crohns/2015jan20/GWAS_imputation/info/GWAS3_new/", paste(chr.num, "fail.list", sep="-")))
+
     # Duplicate snp positions to create 0 length ranges
     snptest.result.dt$position_end <- snptest.result.dt$position
     # Find overlaps with known loci
     contained.snps <- foverlaps(snptest.result.dt, knownLoci.dt, by.x=c("alternate_ids", "position", "position_end"), which=F, nomatch=0)
-    print(paste("Found", nrow(contained.snps), "snps within known loci."))
+    print(paste("Found", nrow(contained.snps), "snps within known loci in", snptest.result.file))
     return(contained.snps)
-}, .parallel=F))
 
-# Note that known loci bound can overlap, so a snp may fall into multiple loci
+}, .parallel=T))
+
+# Note that known loci boundaries can overlap, so a snp may fall into multiple loci
 
 # Sanity checks
 stopifnot(all(knownLoci.snptest.results$alternate_ids == knownLoci.snptest.results$Chr))
@@ -104,10 +121,12 @@ print(paste("SNPs that reached the locus pvalue in at least one model:", sum(mod
 # print(paste("SNPs that reached the generic pvalue threshold in at least one model:", sum(models.signif, na.rm=T), gwas.thresh))
 
 # Filter and write out contained loci
+print(paste("assoc:", assoc))
 print(paste("topSNPs in known loci table:", nrow(knownLoci.dt)))
 print(paste("topSNPs found in snptest results:", sum(knownLoci.snptest.results$is.topsnp)))
 knownLoci.snptest.results.filtered <- knownLoci.snptest.results[models.signif | is.topsnp]
-print(paste("SNPs that reached the locus pvalue threshold in at least one model OR is topSNP:", nrow(knownLoci.snptest.results.filtered)))
-write.table(knownLoci.snptest.results, file.path(out.dir, "contained.snps.all.txt"), sep="\t", row.names=F)
-write.table(knownLoci.snptest.results.filtered, file.path(out.dir, "contained.snps.signif.txt"), sep="\t", row.names=F)
+print(paste("SNPs that reached the signif threshold in at least one model OR is topSNP:", nrow(knownLoci.snptest.results.filtered)))
+
+write.table(knownLoci.snptest.results, file.path(out.dir, paste("contained.snps", dataset, assoc, "all.txt", sep=".")), sep="\t", row.names=F)
+write.table(knownLoci.snptest.results.filtered, file.path(out.dir, paste("contained.snps", dataset, assoc, "signif.txt", sep=".")), sep="\t", row.names=F)
 
