@@ -15,6 +15,12 @@ assoc <- "ibd"
 # Read in snptest results for loci that were re run in glm
 contained.snps.dt <- fread(sprintf("/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/4_gwas/2_R_glm/contained.snps.%s.%s.all.txt", dataset, assoc))
 
+knownLoci.dt <- data.table(read.csv("/nfs/users/nfs_b/bb9/workspace/rotation1/data/known_ibd_loci/Table_S2_-_association_statistics_at_all_known_loci.csv", header=T, comment.char="#"))
+knownLoci.dt$locus.id <- paste(knownLoci.dt$Chr, knownLoci.dt$"LD_left", knownLoci.dt$"LD_right", sep="_")
+# There is one locus (width 1) that did not have any contained snps.
+# This dropped out at the post snptest MAF filter stage.
+setdiff(knownLoci.dt$locus.id, unique(contained.snps.dt$locus.id))
+
 # QC checks
 stopifnot(all(contained.snps.dt$info > 0.4))
 stopifnot(all(contained.snps.dt$all_maf > 0.001))
@@ -41,32 +47,38 @@ merged.results.dt[, is.topsnp.observed := frequentist_add_pvalue == min(frequent
 
 # Coefficient p value is almost the same p value as the lrt
 ggplot(data=merged.results.dt, aes(x=ADD_pValue.LRT, y=ADD_pValue.coef)) + 
+    geom_abline(slope=1, intercept=0) +
     geom_point(aes(colour=frequentist_add_info), size=0.5) +
+    scale_colour_gradient(low="red") +
     scale_x_log10() + scale_y_log10()
 
 # Check that robust LRT is concordant with traditional LRT
 ggplot(data=merged.results.dt[NULL_ADD_pValue.vuongtest.LRT > 0], aes(x=NULL_ADD_pValue.vuongtest.LRT, y=ADD_pValue.LRT)) +
+    geom_abline(slope=1, intercept=0) +
     geom_point(aes(colour=frequentist_add_info), size=0.1) +
+    scale_colour_gradient(low="red") +
     scale_x_log10() + scale_y_log10() 
 
 # @@@@@
 # LRT value corresponds well to snptest values with high INFO
-grid.arrange(
-    # For ADD
-    ggplot(data=merged.results.dt, aes(x=frequentist_add_pvalue, y=ADD_pValue.LRT)) +
-        geom_point(aes(colour=frequentist_add_info), size=0.5) +
-        geom_abline(slope=1, intercept=0) +
-        scale_colour_gradient(low="red") +
-        scale_x_log10() + scale_y_log10(),
-        # geom_text(data=merged.results.dt[abs(1 - frequentist_add_pvalue/ADD_pValue.LRT) > 0.99], aes(label=round(frequentist_add_info, digits=2)), size=3),
-    # For GEN
-    ggplot(data=merged.results.dt, aes(x=frequentist_gen_pvalue, y=GEN_pValue.LRT)) +
-        geom_point(aes(colour=frequentist_gen_info), size=0.5) +
-        geom_abline(slope=1, intercept=0) +
-        scale_colour_gradient(low="red") +
-        scale_x_log10() + scale_y_log10(), 
-    nrow=1, ncol=2 
-)
+png("1_lrt_vs_snptest.png", width=1280, height=720)
+    grid.arrange(
+        # For ADD
+        ggplot(data=merged.results.dt, aes(x=frequentist_add_pvalue, y=ADD_pValue.LRT)) +
+            geom_abline(slope=1, intercept=0) +
+            geom_point(aes(colour=frequentist_add_info), size=0.5) +
+            scale_colour_gradient(low="red") +
+            scale_x_log10() + scale_y_log10(),
+            # geom_text(data=merged.results.dt[abs(1 - frequentist_add_pvalue/ADD_pValue.LRT) > 0.99], aes(label=round(frequentist_add_info, digits=2)), size=3),
+        # For GEN
+        ggplot(data=merged.results.dt, aes(x=frequentist_gen_pvalue, y=GEN_pValue.LRT)) +
+            geom_abline(slope=1, intercept=0) +
+            geom_point(aes(colour=frequentist_gen_info), size=0.5) +
+            scale_colour_gradient(low="red") +
+            scale_x_log10() + scale_y_log10(), 
+        nrow=1, ncol=2 
+    )
+dev.off()
 
 #
 # Detecting evidence for non additive models being better
@@ -75,7 +87,7 @@ better <- data.table(rsid=merged.results.dt$rsid)
 
 # Determine the significance threshold to use
 # Bonferroni on the number of 'independent' loci
-# TODO, consider subsetting, then holm for more power
+# TODO, use this threshold for icci
 signif.thresh <- 0.05 / length(unique(merged.results.dt$locus.id))
 
 #
@@ -89,10 +101,11 @@ better[, HET.raw.pValue := merged.results.dt[, frequentist_het_pvalue < frequent
 #
 # A decision based on raw BIC
 #
-better[, DOM.raw.BIC := merged.results.dt[, ADD_DOM_BIC2 < NULL_ADD_BIC2]]
-better[, REC.raw.BIC := merged.results.dt[, ADD_REC_BIC2 < NULL_ADD_BIC2]]
-better[, GEN.raw.BIC := merged.results.dt[, ADD_GEN_BIC2 < NULL_ADD_BIC2]]
-better[, HET.raw.BIC := merged.results.dt[, ADD_HET_BIC2 < NULL_ADD_BIC2]]
+raw.BIC.thresh <- 6
+better[, DOM.raw.BIC := merged.results.dt[, NULL_ADD_BIC2 - ADD_DOM_BIC2 > raw.BIC.thresh]]
+better[, REC.raw.BIC := merged.results.dt[, NULL_ADD_BIC2 - ADD_REC_BIC2 > raw.BIC.thresh]]
+better[, GEN.raw.BIC := merged.results.dt[, NULL_ADD_BIC2 - ADD_GEN_BIC2 > raw.BIC.thresh]]
+better[, HET.raw.BIC := merged.results.dt[, NULL_ADD_BIC2 - ADD_HET_BIC2 > raw.BIC.thresh]]
 
 #
 # Decision methods for ADD vs GEN (nested)
@@ -122,7 +135,7 @@ better[
 # Dodgy negative p values from vartest have been observed in conjunction with this error:
 # 5: In imhof(n * omega.hat.2, lamstar^2) :
 #    Note that Qq + abserr is positive.
-
+#
 # Use vuong 2 step test (non nested version)
 better[
     , 
@@ -155,7 +168,7 @@ better[
     ]
 ]
 
-# A decision based on BIC (equiv. to AIC)
+# A decision based on BICci (equiv. to AIC)
 #
 # Note: if models are nested or if the "variance test" from
      # ‘vuongtest()’ indicates models are indistinguishable, then the
@@ -207,11 +220,13 @@ length(unique(merged.results.dt[grepl(toupper(assoc), Trait), locus.id]))
 # How many known assoc specific topsnps remain?
 sum(merged.results.dt[grepl(toupper(assoc), Trait), is.topsnp.known])
 #
-# How many known loci reached signif?
-length(unique(merged.results.dt[signif.gwas.thresh == T, locus.id]))
-# How many known topsnps reached signif?
+# How many known topsnps reached signif (ADD model only)?
 sum(merged.results.dt[signif.gwas.thresh == T, is.topsnp.known])
-# How many gwas3 topsnps reached signif?
+# How many known loci reached signif in at least one model?
+length(unique(merged.results.dt[signif.gwas.thresh == T, locus.id]))
+# How many gwas3 topsnps reached signif (ADD model only)?
+# There are loci where the gwas3 topsnp (based on frequentist_add_pvalue) did not reach significance,
+# but another snp in the locus did (based on a non additive p value).
 sum(merged.results.dt[signif.gwas.thresh == T, is.topsnp.observed])
 # Distribution of signif snps per locus
 # table(merged.results.onlySignif.dt$locus.id)
@@ -221,13 +236,15 @@ plotVennWrapper <- function(dt, names) {
     subset.dt[is.na(subset.dt)] <- F
     v <- venn(subset.dt, show.plot=T)
 }
-# TODO
+
+png("1.5_topsnp_venn.png", width=640, height=640)
+plotVennWrapper(merged.results.dt[signif.gwas.thresh == T & (is.topsnp.known|is.topsnp.observed), .(is.topsnp.known,is.topsnp.observed)], c("is.topsnp.known", "is.topsnp.observed"))
+dev.off()
 
 #
 # Question 0.5
 # How should we judge if a snp displays sufficient evidence for a non additive model?
 #
-
 better.onlySignif <- better[merged.results.dt$signif.gwas.thresh]
 
 # Compare models
@@ -239,10 +256,18 @@ plotVennWrapper(better.onlySignif, c("DOM.coxtest", "REC.coxtest", "HET.coxtest"
 plotVennWrapper(better.onlySignif, c("DOM.jtest", "REC.jtest", "HET.jtest"))
 
 # Same model, compare methods
-plotVennWrapper(better.onlySignif, c("DOM.raw.pValue", "DOM.vuong", "DOM.BIC", "DOM.coxtest", "DOM.jtest"))
-plotVennWrapper(better.onlySignif, c("REC.raw.pValue", "REC.vuong", "REC.BIC", "REC.coxtest", "REC.jtest"))
+png("2_compare_model_selection_methods.DOM.png", width=640, height=640)
+plotVennWrapper(better.onlySignif, c("DOM.raw.pValue", "DOM.vuong", "DOM.BIC", "DOM.raw.BIC"))
+dev.off()
+png("2_compare_model_selection_methods.REC.png", width=640, height=640)
+plotVennWrapper(better.onlySignif, c("REC.raw.pValue", "REC.vuong", "REC.BIC", "REC.raw.BIC"))
+dev.off()
+png("2_compare_model_selection_methods.GEN.png", width=640, height=640)
 plotVennWrapper(better.onlySignif, c("GEN.raw.pValue", "GEN.raw.BIC", "GEN.vuong", "GEN.LRT"))
-plotVennWrapper(better.onlySignif, c("HET.raw.pValue", "HET.vuong", "HET.BIC", "HET.coxtest", "HET.jtest"))
+dev.off()
+png("2_compare_model_selection_methods.HET.png", width=640, height=640)
+plotVennWrapper(better.onlySignif, c("HET.raw.pValue", "HET.vuong", "HET.BIC", "HET.raw.BIC"))
+dev.off()
 
 # Heatmap of method concordance
 #
@@ -350,47 +375,57 @@ plotVennWrapper(better.onlySignif, c("HET.raw.pValue", "HET.vuong", "HET.BIC", "
 merged.results.dt[, better.DOM := better[, DOM.vuong & DOM.BIC]]
 merged.results.dt[, better.REC := better[, REC.vuong & REC.BIC]]
 merged.results.dt[, better.GEN := better[, GEN.LRT]]
-merged.results.dt[, better.HET := better[, HET.BIC]]
+merged.results.dt[, better.HET := better[, HET.vuong & HET.BIC]]
 
+png("3_betters.nonADD.png", width=720, height=720)
+plotVennWrapper(merged.results.dt[signif.gwas.thresh == T], c("better.DOM", "better.REC", "better.HET", "better.GEN"))
+dev.off()
+
+#
 # Determine the "best model" for snps that show evidence for non additive effects
 # This is the lowest BIC of significant non additive models.
-# Report this lowest BIC.
 #
-registerDoMC(cores=8)
-merged.results.dt <- adply(merged.results.dt, 1, function(x) {
-    modelNames <- c("DOM", "REC", "GEN", "HET")
-    BICs <- with(x, c(ADD_DOM_BIC2, ADD_REC_BIC2, ADD_GEN_BIC2, ADD_HET_BIC2))
-    pValues <- with(x, c(frequentist_add_pvalue, frequentist_rec_pvalue, frequentist_gen_pvalue, frequentist_het_pvalue))
-    betters <- with(x, c(better.DOM, better.REC, better.GEN, better.HET))
-    bestBIC <- BICs[betters]
-    bestPValue <- pValues[betters]
-    if(length(bestBIC)) {
-        return(data.frame(
-            best.model = modelNames[which(BICs == min(bestBIC))][1],
-            best.BIC = min(bestBIC),
-            best.pValue = min(bestPValue)
-        ))
-    } else {
-        return(data.frame(
-            best.model = "ADD",
-            best.BIC = x$NULL_ADD_BIC2,
-            best.pValue = x$frequentist_add_pvalue
-        ))
-    }
-}, .parallel=T)
-
-# Get best non additive model, BIC, and evidence for non additivity with that model
-# TODO this is a much faster version, but unfinished
+# Slow version.
+# registerDoMC(cores=12)
+# merged.results.dt <- adply(merged.results.dt, 1, function(x) {
+    # modelNames <- c("DOM", "REC", "GEN", "HET")
+    # BICs <- with(x, c(ADD_DOM_BIC2, ADD_REC_BIC2, ADD_GEN_BIC2, ADD_HET_BIC2))
+    # pValues <- with(x, c(frequentist_dom_pvalue, frequentist_rec_pvalue, frequentist_gen_pvalue, frequentist_het_pvalue))
+    # betters <- with(x, c(better.DOM, better.REC, better.GEN, better.HET))
+    # bestBIC <- BICs[betters]
+    # bestPValue <- pValues[betters]
+    # if(length(bestBIC)) {
+        # return(data.frame(
+            # best.model = modelNames[which(BICs == min(bestBIC))][1],
+            # best.BIC = min(bestBIC),
+            # best.pValue = min(bestPValue) # BUG the min p value may not be the best model's pvalue
+        # ))
+    # } else {
+        # return(data.frame(
+            # best.model = "ADD",
+            # best.BIC = x$NULL_ADD_BIC2,
+            # best.pValue = x$frequentist_add_pvalue
+        # ))
+    # }
+# }, .parallel=T)
+# 
 non.add.BICs <- as.matrix(merged.results.dt[, .(ADD_DOM_BIC2, ADD_REC_BIC2, ADD_GEN_BIC2, ADD_HET_BIC2)])
+non.add.pValues <- as.matrix(merged.results.dt[, .(frequentist_dom_pvalue, frequentist_rec_pvalue, frequentist_gen_pvalue, frequentist_het_pvalue)])
 non.add.better <- as.matrix(merged.results.dt[, .(better.DOM, better.REC, better.GEN, better.HET)])
 non.add.BICs.masked <- ifelse(non.add.better, non.add.BICs, NA)
 best.models <- apply(non.add.BICs.masked, 1, function(x) {
     if(all(is.na(x))) {
-        return(NA)
+        # If there is insufficient evidence for any nonADD model being better.
+        return("ADD")
     } else {
         return(sub("^better.", "", names(x)[which.min(x)]))
     }
 })
+best.models.numeric <- as.numeric(mapvalues(best.models, from=c("ADD", "DOM", "REC", "GEN", "HET"), to=1:5))
+merged.results.dt$best.model <- best.models
+# Report the associated best model BIC and p value
+merged.results.dt$best.BIC <- cbind(merged.results.dt$NULL_ADD_BIC2, non.add.BICs)[cbind(1:length(best.models), best.models.numeric)]
+merged.results.dt$best.pValue <- cbind(merged.results.dt$frequentist_add_pvalue, non.add.pValues)[cbind(1:length(best.models), best.models.numeric)]
 
 # Get best non additive model, BIC, and evidence for non additivity with that model
 # non.add.BICs <- merged.results.dt[, .(ADD_DOM_BIC2, ADD_REC_BIC2, ADD_GEN_BIC2, ADD_HET_BIC2)]
@@ -410,9 +445,12 @@ best.models <- apply(non.add.BICs.masked, 1, function(x) {
 # @@@@@
 # Summary of which model is best
 table(merged.results.dt$best.model)
+table(merged.results.dt[signif.gwas.thresh == T]$best.model)
 # Distribution of how much of a BIC decrease is achieved with the best model
 merged.results.dt$best.BIC.decrease <- merged.results.dt$NULL_ADD_BIC2 - merged.results.dt$best.BIC
+png("4_bic_decreases.png", width=720, height=720)
 hist(merged.results.dt[best.BIC.decrease > 0, best.BIC.decrease], breaks=50)
+dev.off()
 
 #
 # Question 1
@@ -491,7 +529,7 @@ merged.results.dt[(better.DOM | better.REC | better.HET | better.GEN) & signif.g
 #
 
 #
-# TODO below here
+# TODO unfinished things below here
 #
 dev.off()
 stopifnot(F)
