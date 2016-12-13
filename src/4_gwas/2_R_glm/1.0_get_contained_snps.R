@@ -10,9 +10,7 @@ library(doMC)
 registerDoMC(cores=8)
 options(stringsAsFactors=F)
 
-# TODO
 dataset <- "gwas3"
-
 assoc <- "ibd"
 # assoc <- "uc"
 # assoc <- "cd"
@@ -27,24 +25,19 @@ knownLoci.dt$locus.id <- paste(knownLoci.dt$Chr, knownLoci.dt$"LD_left", knownLo
 setkey(knownLoci.dt, Chr, LD_left, LD_right)
 
 # Read in snptest rows within known loci
-knownLoci.snptest.results <- data.table(ldply(list.files(file.path("/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/4_gwas/1_snptest/results.filtered/gwas3/", assoc), pattern="*.snptest.filtered.out", full.names=T), function(snptest.result.file) {
+knownLoci.snptest.results <- data.table(ldply(list.files(file.path("/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/4_gwas/1_snptest/results.filtered/", dataset, assoc), pattern="*.snptest.filtered.out", full.names=T), function(snptest.result.file) {
 
-    # snptest.result.file <- data.table(ldply(list.files(file.path("/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/4_gwas/1_snptest/results.filtered/gwas3/", assoc), pattern="*.snptest.filtered.out", full.names=T)[14]
+    # snptest.result.file <- list.files(file.path("/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/4_gwas/1_snptest/results.filtered/", dataset, assoc), pattern="*.snptest.filtered.out", full.names=T)[1]
 
     # print(paste("Processing", snptest.result.file))
     snptest.result.dt <- fread(snptest.result.file, header=T, showProgress=F)
-
-    # TODO Actually we do this upstream as we operate only on filtered snptest results
-    # Filter out snps based on list of excluded snps
-    # Filtering was done based on MAF < 0.001 and info < 0.4, see: /lustre/scratch113/projects/crohns/2015jan20/GWAS_imputation/info/README
-    # chr.num <- gsub(".snptest.filtered.out$", "", gsub("^chr_", "", basename(snptest.result.file)))
-    # foo <- fread(file.path("/lustre/scratch113/projects/crohns/2015jan20/GWAS_imputation/info/GWAS3_new/", paste(chr.num, "fail.list", sep="-")))
 
     # Duplicate snp positions to create 0 length ranges
     snptest.result.dt$position_end <- snptest.result.dt$position
     # Find overlaps with known loci
     contained.snps <- foverlaps(snptest.result.dt, knownLoci.dt, by.x=c("alternate_ids", "position", "position_end"), which=F, nomatch=0)
     print(paste("Found", nrow(contained.snps), "snps within known loci in", snptest.result.file))
+
     return(contained.snps)
 
 }, .parallel=T))
