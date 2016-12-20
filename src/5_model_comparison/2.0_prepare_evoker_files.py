@@ -174,6 +174,33 @@ def main():
             'coor': '49053165',
             'rsid': 'exm-rs11778329'
         },
+        # CD MHC rank ups
+        {
+            'chrom': '6',
+            'coor': '31327660',
+            'rsid': 'exm-rs1811197'
+        },
+        {
+            'chrom': '6',
+            'coor': '31334174',
+            'rsid': 'exm-rs2596574'
+        },
+        {
+            'chrom': '6',
+            'coor': '31356574',
+            'rsid': 'exm-rs2853969'
+        },
+        {
+            'chrom': '6',
+            'coor': '32064726',
+            'rsid': 'exm534416'
+        },
+        # UC MHC rankups
+        {
+            'chrom': '6',
+            'coor': '32602269',
+            'rsid': 'rs9272219'
+        },
     ]
     
     prepare_evoker_files(work_path, snps)

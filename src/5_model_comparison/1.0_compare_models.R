@@ -11,9 +11,11 @@ library(irr)
 library(doMC)
 
 dataset <- "gwas3"
+assoc <- "ibd"
 # assoc <- "cd"
 # assoc <- "uc"
-assoc <- "ibd"
+
+assoc <- commandArgs(trailingOnly=T)[1]
 
 outdir.base <- "/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/5_model_comparison/1.0_compare_models/"
 outdir <- file.path(outdir.base, dataset, assoc)
@@ -40,7 +42,8 @@ stopifnot(all(contained.snps.dt$all_maf > 0.001))
 # Read in results from glm
 all.glm.out.files <- mixedsort(list.files(file.path("/nfs/users/nfs_b/bb9/workspace/rotation1/crohns_workspace/4_gwas/2_R_glm/chunks/", dataset, assoc), include.dirs=F, recursive=T, full.names=T))
 length(all.glm.out.files)
-glm.results.dt <- data.table(ldply(all.glm.out.files, fread, .progress="text"))
+registerDoMC(cores=4)
+glm.results.dt <- data.table(ldply(all.glm.out.files, fread, .progress="none", .parallel=T))
 
 # Merge in snptest p values
 merged.results.dt <- merge(contained.snps.dt, glm.results.dt, by.x=c("rsid"), by.y=c("snp.id"), all.y=T)
@@ -48,12 +51,13 @@ dim(merged.results.dt)
 # Find topsnps
 merged.results.dt[, is.topsnp.meta := topSNP.Position..bp. == position.x, by=locus.id]
 merged.results.dt[, is.topsnp.observed := frequentist_add_pvalue == min(frequentist_add_pvalue, na.rm=T), by=locus.id]
-merged.results.dt[, is.locus.implicated := grepl(toupper(assoc), Trait)]
+merged.results.dt[, is.locus.implicated := grepl(toupper(assoc), Trait) | grepl("IBD", Trait)]
 
 # Extra round of MAF filtering
 merged.results.dt.orig <- merged.results.dt
 # Allow through particular NOD2 snps that will be specifically checked downstream
 merged.results.dt <- merged.results.dt[all_maf >= 0.01 | (alternate_ids == 16 & position.x %in% c(50745926, 50756540, 50763778))]
+merged.results.dt[position.x %in% c(50745926, 50756540, 50763778), .(rsid, all_maf)]
 
 #
 # Start comparisons
@@ -82,11 +86,13 @@ ggplot(data=merged.results.dt[NULL_ADD_pValue.vuongtest.LRT > 0], aes(x=NULL_ADD
 }
 
 # LRT value corresponds well to snptest values with high INFO
-svg("0.0_frequentist_add-gen_pvalue_vs_ADD-GEN_pValue.LRT.svg", width=14, height=7)
+pdf("0.0_frequentist_add-gen_pvalue_vs_ADD-GEN_pValue.LRT.pdf", width=14, height=7)
+
     grid.arrange(
         # For ADD
         ggplot(data=merged.results.dt, aes(x=frequentist_add_pvalue, y=ADD_pValue.LRT)) +
             geom_abline(slope=1, intercept=0, linetype="dashed", col="grey40") +
+            # geom_abline(slope=1.05, intercept=0, linetype="dashed", col="blue") +
             geom_hline(yintercept=5e-8, linetype="dotted", col="grey40") +
             geom_vline(xintercept=5e-8, linetype="dotted", col="grey40") +
             geom_point(aes(colour=frequentist_add_info), size=0.3) +
@@ -95,7 +101,7 @@ svg("0.0_frequentist_add-gen_pvalue_vs_ADD-GEN_pValue.LRT.svg", width=14, height
         # For GEN
         ggplot(data=merged.results.dt, aes(x=frequentist_gen_pvalue, y=GEN_pValue.LRT)) +
             geom_abline(slope=1, intercept=0, linetype="dashed", col="grey40") +
-            # geom_abline(slope=1.2, intercept=0, linetype="dashed", col="blue") +
+            # geom_abline(slope=1.1, intercept=0, linetype="dashed", col="blue") +
             geom_hline(yintercept=5e-8, linetype="dotted", col="grey40") +
             geom_vline(xintercept=5e-8, linetype="dotted", col="grey40") +
             geom_point(aes(colour=frequentist_gen_info), size=0.3) +
@@ -104,11 +110,28 @@ svg("0.0_frequentist_add-gen_pvalue_vs_ADD-GEN_pValue.LRT.svg", width=14, height
             scale_x_log10() + scale_y_log10(),
         nrow=1, ncol=2 
     )
+
 dev.off()
 
-# Investigate points below 1.2x line in GEN plot
-# Almost all MHC for IBD
-merged.results.dt[log10(GEN_pValue.LRT) < log10(frequentist_gen_pvalue)*1.2 & frequentist_gen_pvalue < 5e-8 & GEN_pValue.LRT < 5e-8]
+sink("misc_output.txt", append=T, split=T)
+print("pearson R for LRT p value vs snptest:")
+print("ADD")
+cor(merged.results.dt$ADD_pValue.LRT, merged.results.dt$frequentist_add_pvalue, use="pairwise.complete.obs", method="pearson")
+print("DOM")
+cor(merged.results.dt$DOM_pValue.LRT, merged.results.dt$frequentist_dom_pvalue, use="pairwise.complete.obs", method="pearson")
+print("REC")
+cor(merged.results.dt$REC_pValue.LRT, merged.results.dt$frequentist_rec_pvalue, use="pairwise.complete.obs", method="pearson")
+print("HET")
+cor(merged.results.dt$HET_pValue.LRT, merged.results.dt$frequentist_het_pvalue, use="pairwise.complete.obs", method="pearson")
+print("GEN")
+cor(merged.results.dt$GEN_pValue.LRT, merged.results.dt$frequentist_gen_pvalue, use="pairwise.complete.obs", method="pearson")
+sink()
+
+# Investigate points below line
+# Almost all MHC for IBD (, 1.2) and UC
+# In 1_67206042_68100675 for CD (1.05, 1.1)
+merged.results.dt[log10(ADD_pValue.LRT) < log10(frequentist_add_pvalue)*1.1 & frequentist_add_pvalue < 5e-8 & ADD_pValue.LRT < 5e-8, .(rsid, locus.id, all_maf, frequentist_add_info)]
+merged.results.dt[log10(GEN_pValue.LRT) < log10(frequentist_gen_pvalue)*1.1 & frequentist_gen_pvalue < 5e-8 & GEN_pValue.LRT < 5e-8, .(rsid, locus.id, all_maf, frequentist_gen_info)]
 
 #
 # Detecting evidence for non additive models being better
@@ -221,7 +244,7 @@ better[, HET.jtest := merged.results.dt[, ADD_HET_pValue.jtest > 0 & ADD_HET_pVa
 
 # Filter data to leave only genome wide significant snps 
 gwas.thresh <- 5e-8
-
+#
 merged.results.dt[
     , 
     signif.gwas.thresh :=
@@ -243,16 +266,16 @@ sink("misc_output.txt", append=T, split=T)
 #
 print("How many snps total?")
 nrow(merged.results.dt)
-print("How many snps left?")
+print("How many snps signif?")
 nrow(merged.results.dt[signif.gwas.thresh == T])
-print("How many known loci remain?")
+print("How many known loci?")
 length(unique(merged.results.dt$locus.id))
-print("How many known topsnps remain?")
+print("How many known topsnps?")
 sum(merged.results.dt$is.topsnp.meta)
 #
-print("How many known assoc specific loci remain?")
+print("How many known assoc implicated loci?")
 length(unique(merged.results.dt[grepl(toupper(assoc), Trait), locus.id]))
-print("How many known assoc specific topsnps remain?")
+print("How many known assoc implicated topsnps?")
 sum(merged.results.dt[grepl(toupper(assoc), Trait), is.topsnp.meta])
 #
 print("How many known topsnps reached signif (ADD model only)?")
@@ -263,6 +286,8 @@ print("How many gwas3 topsnps reached signif (ADD model only)?")
 # There are loci where the gwas3 topsnp (based on frequentist_add_pvalue) did not reach significance,
 # but another snp in the locus did (based on a non additive p value).
 sum(merged.results.dt[signif.gwas.thresh == T, is.topsnp.observed])
+print("Distribution of snps per locus:")
+table(merged.results.dt$locus.id)
 print("Distribution of signif snps per locus:")
 table(merged.results.dt[signif.gwas.thresh == T, locus.id])
 #
@@ -274,26 +299,27 @@ plotVennWrapper <- function(dt, names) {
     v <- venn(subset.dt, show.plot=T)
 }
 
-svg("1.0_distr_of_topsnps_in_signif_loci.svg", width=7, height=7)
-    # plotVennWrapper(merged.results.dt[signif.gwas.thresh == T & (is.topsnp.meta|is.topsnp.observed)], c("is.topsnp.meta", "is.topsnp.observed", "is.locus.implicated"))
+pdf("1.0_distr_of_topsnps_in_signif_loci.pdf", width=7, height=7)
+
     plotVennWrapper(
         merged.results.dt[
             # Consider the topsnps in loci that contain snps significant in ANY gwas3 model...
             signif.gwas.thresh == T, 
             .(
                 # Is the topsnp in a locus implicated in the IBD meta analysis?
-                in.implicated.locus=all(is.locus.implicated), 
+                in.implicated.locus=unique(is.locus.implicated), 
                 # Is the topsnp significant in gwas3 using ADD model?
-                is.signif.in.gwas3=any(is.topsnp.observed),
-                #
-                is.signif.in.gwas3.and.meta=any(is.topsnp.meta & is.topsnp.observed)
+                is.signif.in.gwas3.ADD=any(is.topsnp.observed),
+                # Is the topsnp significant in gwas3 and the meta analysis?
+                is.signif.in.gwas3.ADD.and.meta=any(is.topsnp.meta & is.topsnp.observed)
             ), 
             by=locus.id
         ],
-        c("in.implicated.locus", "is.signif.in.gwas3", "is.signif.in.gwas3.and.meta")
+        c("in.implicated.locus", "is.signif.in.gwas3.ADD", "is.signif.in.gwas3.ADD.and.meta")
     )
     # For those (3 for assoc=IBD) loci that are implicated but not significant according to the additive model, 
     # a non additive model caused the locus to pass the threshold.is.topsnp.meta
+
 dev.off()
 
 #
@@ -313,18 +339,23 @@ plotVennWrapper(better.onlySignif, c("DOM.jtest", "REC.jtest", "HET.jtest"))
 }
 
 # Same model, compare methods
-svg("2.0_compare_model_selection_methods.DOM.svg", width=7, height=7)
+pdf("2.0_compare_model_selection_methods.DOM.pdf", width=10, height=8)
     plotVennWrapper(better.onlySignif, c("DOM.raw.pValue", "DOM.vuong", "DOM.BIC", "DOM.raw.BIC"))
 dev.off()
-svg("2.0_compare_model_selection_methods.REC.svg", width=7, height=7)
+pdf("2.0_compare_model_selection_methods.REC.pdf", width=10, height=8)
     plotVennWrapper(better.onlySignif, c("REC.raw.pValue", "REC.vuong", "REC.BIC", "REC.raw.BIC"))
 dev.off()
-svg("2.0_compare_model_selection_methods.GEN.svg", width=7, height=7)
+pdf("2.0_compare_model_selection_methods.GEN.pdf", width=10, height=8)
     plotVennWrapper(better.onlySignif, c("GEN.raw.pValue", "GEN.raw.BIC", "GEN.vuong", "GEN.LRT"))
 dev.off()
-svg("2.0_compare_model_selection_methods.HET.svg", width=7, height=7)
+pdf("2.0_compare_model_selection_methods.HET.pdf", width=10, height=8)
     plotVennWrapper(better.onlySignif, c("HET.raw.pValue", "HET.vuong", "HET.BIC", "HET.raw.BIC"))
 dev.off()
+# Crop excess whitespace
+system("pdfcrop 2.0_compare_model_selection_methods.DOM.pdf 2.0_compare_model_selection_methods.DOM.cropped.pdf")
+system("pdfcrop 2.0_compare_model_selection_methods.REC.pdf 2.0_compare_model_selection_methods.REC.cropped.pdf")
+system("pdfcrop 2.0_compare_model_selection_methods.GEN.pdf 2.0_compare_model_selection_methods.GEN.cropped.pdf")
+system("pdfcrop 2.0_compare_model_selection_methods.HET.pdf 2.0_compare_model_selection_methods.HET.cropped.pdf")
 
 # Heatmap of method concordance
 #
@@ -434,10 +465,8 @@ merged.results.dt[, better.REC := better[, REC.vuong & REC.BIC]]
 merged.results.dt[, better.GEN := better[, GEN.LRT]]
 merged.results.dt[, better.HET := better[, HET.vuong & HET.BIC]]
 
-svg("3.0_venn_of_nonADD_betters.svg", width=7, height=7)
-
+pdf("3.0_venn_of_nonADD_betters.pdf", width=7, height=7)
     plotVennWrapper(merged.results.dt[signif.gwas.thresh == T], c("better.DOM", "better.REC", "better.HET", "better.GEN"))
-
 dev.off()
 
 #
@@ -469,10 +498,11 @@ table(merged.results.dt$best.model)
 print("Tally of better models (signif.gwas.thresh only)")
 table(merged.results.dt[signif.gwas.thresh == T]$best.model)
 sink()
+
 # Distribution of how much of a BIC decrease is achieved with the best model
 merged.results.dt$best.BIC.decrease <- merged.results.dt$NULL_ADD_BIC2 - merged.results.dt$best.BIC
-svg("3.1_bic_decreases.png", width=7, height=7)
-    hist(merged.results.dt[best.BIC.decrease > 0, best.BIC.decrease], breaks=100)
+pdf("3.1_bic_decreases.pdf", width=7, height=7)
+    hist(merged.results.dt[best.BIC.decrease > 0, best.BIC.decrease], breaks=50)
 dev.off()
 
 #
@@ -508,32 +538,33 @@ grid.arrange(
 merged.results.dt[, ADD.BIC.rank := rank(NULL_ADD_BIC2), by=locus.id]
 merged.results.dt[, frequentist_add_pvalue.rank := rank(frequentist_add_pvalue), by=locus.id]
 merged.results.dt[, best.BIC.rank := rank(best.BIC), by=locus.id]
+merged.results.dt[, rank.up := frequentist_add_pvalue.rank - best.BIC.rank, by=locus.id]
 
-# Find topsnps whose rank changes between the rankings
+# Find topsnps based on both rankings
 to.followup <- merged.results.dt[
-    (frequentist_add_pvalue.rank <= 3 | best.BIC.rank <= 3) & 
+    best.BIC.rank == 1 & 
+    (frequentist_add_pvalue.rank > best.BIC.rank) & 
     signif.gwas.thresh &
-    frequentist_add_pvalue.rank != best.BIC.rank,
-    .(
-        alternate_ids, rsid, locus.id, position.x,
-        is.topsnp.meta, is.topsnp.observed, 
-        best.model, 
-        frequentist_add_pvalue, best.pValue, 
-        best.BIC.decrease, 
-        frequentist_add_pvalue.rank, ADD.BIC.rank, best.BIC.rank, 
-        rank.up=frequentist_add_pvalue.rank-best.BIC.rank,
-        signif.gwas.thresh
-    )
+    best.model != "ADD",
+    # .(
+        # alternate_ids, rsid, locus.id, position.x, 
+        # is.topsnp.meta, is.topsnp.observed, 
+        # best.model, 
+        # frequentist_add_pvalue, best.pValue, 
+        # best.BIC.decrease, 
+        # frequentist_add_pvalue.rank, ADD.BIC.rank, best.BIC.rank, 
+        # signif.gwas.thresh
+    # )
 ]
-
-# Merge in rsids from bim file.
-qcIMP.bim.dt <- fread('/lustre/scratch114/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qcIMP.bim')
 
 write.fwf(
     to.followup,
     file = "4.1_better_nonADD_topsnp_appears_for_locus.txt",
     sep="\t"
 )
+
+# Get rsids from bim file.
+qcIMP.bim.dt <- fread('/lustre/scratch114/teams/barrett/coreex_gaibdc/QC/COMBINED/4_marker_QC/coreex_gaibdc_usgwas_qcIMP.bim')
 
 write.fwf(
     qcIMP.bim.dt[paste(qcIMP.bim.dt[, V1], qcIMP.bim.dt[, V4]) %in% paste(to.followup[, alternate_ids], to.followup[, position.x])],
@@ -551,13 +582,31 @@ write.fwf(
 sink("misc_output.txt", append=T, split=T)
 print("Tally of which loci that the significant non additive effects lie:")
 table(merged.results.dt[(better.DOM | better.REC | better.HET | better.GEN) & signif.gwas.thresh, locus.id])
-sink()
+print("Mean rank change within loci:")
 
 merged.results.dt[
     (better.DOM | better.REC | better.HET | better.GEN) & signif.gwas.thresh, 
-    .(.N, mean.best.BIC.rank=mean(best.BIC.rank), mean.frequentist_add_pvalue.rank=mean(frequentist_add_pvalue.rank), mean.rank.up=mean(frequentist_add_pvalue.rank - best.BIC.rank)), 
+    .(.N, mean.best.BIC.rank=mean(best.BIC.rank), mean.frequentist_add_pvalue.rank=mean(frequentist_add_pvalue.rank), mean.rank.up=mean(frequentist_add_pvalue.rank - best.BIC.rank), mean.best.BIC.decrease=mean(best.BIC.decrease)), 
     by=locus.id
 ]
+sink()
+
+# Heatmap of non add betters by locus and model
+pdf("4.3_heatmap_of_betters_by_locus_and_model.pdf", width=5, height=5)
+
+ggplot(data=melt(table(merged.results.dt[signif.gwas.thresh == T & best.model != "ADD", .(best.model, locus.id)])), aes(best.model, locus.id)) +
+    geom_tile(aes(fill=value)) + 
+    geom_text(aes(label=value), size=8) +
+    scale_fill_gradient(low="white", high="red") +
+    theme(legend.position='none')
+
+dev.off()
+
+# Where are the MHC loci
+# merged.results.dt[
+    # (better.DOM | better.REC | better.HET | better.GEN) & signif.gwas.thresh & locus.id == "6_31011373_32778656", 
+    # .(.N, position.x, mean.best.BIC.rank=(best.BIC.rank), mean.frequentist_add_pvalue.rank=(frequentist_add_pvalue.rank), mean.rank.up=(frequentist_add_pvalue.rank - best.BIC.rank))
+# ]
 
 #
 # Output loci with a large BIC decrease
@@ -566,22 +615,22 @@ best.BIC.decrease.95.pc <- quantile(merged.results.dt[best.BIC.decrease > 0, bes
 write.fwf(
     merged.results.dt[
         best.BIC.decrease > best.BIC.decrease.95.pc, 
-        .(
-            rsid, locus.id, position.x, all_maf, info,
-            is.topsnp.meta, is.topsnp.observed, 
-            best.model, 
-            frequentist_add_pvalue, best.pValue, 
-            best.BIC.decrease, 
-            ADD.BIC.rank, best.BIC.rank, 
-            signif.gwas.thresh, best.BIC.decrease.95.pc.thresh=best.BIC.decrease.95.pc
-        )
+        # .(
+            # rsid, locus.id, position.x, all_maf, info,
+            # is.topsnp.meta, is.topsnp.observed, 
+            # best.model, 
+            # frequentist_add_pvalue, best.pValue, 
+            # best.BIC.decrease, 
+            # ADD.BIC.rank, best.BIC.rank, 
+            # signif.gwas.thresh, best.BIC.decrease.95.pc.thresh=best.BIC.decrease.95.pc
+        # )
     ],
-    file = "5.0_snps_with_best_BIC_decrease_95_pc.txt",
+    file = sprintf("5.0_snps_with_best_BIC_decrease_95_pc.BIC_thresh_%f.txt", best.BIC.decrease.95.pc),
     sep="\t"
 )
 
 # What is the distribution of their info scores and MAFs?
-svg("5.1_distr_of_info_and_maf_of_betters.svg", width=14, height=7)
+pdf("5.1_distr_of_info_and_maf_of_betters.pdf", width=14, height=7)
     grid.arrange(
     ggplot(data=merged.results.dt[signif.gwas.thresh == T, .(better.DOM, better.REC, better.HET, better.GEN, info, all_maf)]) +
         geom_violin(aes(x=(better.DOM | better.REC | better.HET | better.GEN), y=info)),
