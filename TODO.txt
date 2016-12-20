@@ -1,15 +1,7 @@
 
-compare between imputation reference panels
-and to release version
+Which snps were called as part of which batch:
+    /lustre/scratch113/teams/barrett/coreex_gaibdc/opticall/CASES_coreex_gaibdc/
 
-scripts and assoc results:
-/lustre/scratch113/projects/crohns/2015jan20/GWAS_imputation/assoc_NEW/GWAS3
-
-raw data for assoc (post imputation):
-/lustre/scratch113/projects/crohns/RELEASE/v1/GWAS3/
-
-    generate PCs using plink
-    snptest correcting for 10 pcs
-
-bsub version of pbwt
+Explore recalling false positives:
+    /lustre/scratch113/projects/crohns/2015jan20/GWAS_imputation/assoc_NEW/GWAS3/recalled_hit_SNPs/
 
