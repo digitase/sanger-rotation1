@@ -14,6 +14,7 @@ args <- commandArgs(trailingOnly = TRUE)
 
 data <- read.table(paste(args[1],".evec",sep=""),h=F,skip=1)
 colnames(data) <- c("Sample","PC1","PC2","Population")
+data$Population <- as.factor(data$Population)
 data$Population <- revalue(data$Population, c("3"="CEU", "4"="CHB", "5"="JPT", "6"="YRI"))
 
 # group.colors <- c(JPT="PURPLE",CHB="PURPLE",YRI="GREEN",CEU="RED",BATCH="ORANGE",Case="BLUE",Control="BLACK")
@@ -24,5 +25,6 @@ data$Population <- revalue(data$Population, c("3"="CEU", "4"="CHB", "5"="JPT", "
 pdf(paste(args[1],".evec.pdf",sep=""),width=8,height=8)
     plot(data$PC1,data$PC2,col=data$Population)
     abline(h=as.numeric(args[2]),lty=2)
+    legend("topright", legend=levels(data$Population), fill=1:length(levels(data$Population)), title="Populations")
 dev.off()
 

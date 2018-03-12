@@ -52,14 +52,23 @@ out.failedIds.file <- commandArgs(T)[13]
 # Identify samples failing heterozygosity filter
 #
 
+# read.table that handles empty input files
+read.table.try <- function(filename, ...) {
+    result <- tryCatch({
+        read.table(filename, ...)
+    }, error = function(e) {
+        data.frame()
+    })
+}
+
 # Read in previously identified individuals
-in.imiss.fails.df <- read.table(in.imiss.fails.file)
-in.het.fails.df <- read.table(in.het.fails.file)
+in.imiss.fails.df <- read.table.try(in.imiss.fails.file)
+in.het.fails.df <- read.table.try(in.het.fails.file)
 
 #
 # Identify samples with discordant sex information
 #
-in.sexcheck.df <- read.table(in.sexcheck.file, header = T)
+in.sexcheck.df <- read.table.try(in.sexcheck.file, header = T)
 
 # Account for known plate-swap:
 #
@@ -88,11 +97,11 @@ in.sexcheck.df$CHECKSEX.FAIL[in.sexcheck.df$IID == "333835_G08_UC755045"] <- T
 # 
 # Identify individuals with non-European ancestry
 #
-in.pca.df <- read.table(in.pca.file, skip = 1)
+in.pca.df <- read.table.try(in.pca.file, skip = 1)
 colnames(in.pca.df) <- c("SAMPLE", "PC1", "PC2", "POP")
 
 # Unshorten sample IDs
-in.hapmap.fam.df <- read.table(in.hapmap.fam.file)
+in.hapmap.fam.df <- read.table.try(in.hapmap.fam.file)
 
 stopifnot(nrow(in.pca.df) == nrow(in.hapmap.fam.df))
 in.pca.df$FID <- in.hapmap.fam.df$V1
@@ -107,7 +116,7 @@ in.pca.df$ANCESTRY.FAIL <- in.pca.df$PC2 < in.pc2.thresh
 
 # Read in all original samples
 # This is the fam file after qc1, which removed markers with excess missingness
-in.fam.orig.df <- read.table(in.fam.orig.file)
+in.fam.orig.df <- read.table.try(in.fam.orig.file)
 
 # Add QC failures
 failures.summary <- data.frame(FID = in.fam.orig.df$V1, IID = in.fam.orig.df$V2)
@@ -127,10 +136,10 @@ failures.summary$ANCESTRY.FAIL[failures.summary$IID %in% in.pca.df$IID[in.pca.df
 # 
 # Identify duplicated and highly related individuals
 #
-in.king.ibs0.df <- read.table(in.king.ibs0.file, header = T)
+in.king.ibs0.df <- read.table.try(in.king.ibs0.file, header = T)
 
 # Read in sample call rates
-in.imiss.df <- read.table(in.imiss.file, header=T)
+in.imiss.df <- read.table.try(in.imiss.file, header=T)
 
 # For each related pair, if both members passed other QC, mark the member with the lower call rate.
 # Return whether each member of the pair fails.

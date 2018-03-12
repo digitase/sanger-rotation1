@@ -194,6 +194,7 @@ plink \
 # Shorten family/sample ids in fam file, as smartpca has a max length limit
     # -v map="$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.id_to_short_id.mappings" \
     # '{print "ID" NR FS $1 >> map; print "ID" NR FS "ID" NR FS $3 FS $4 FS $5 FS $6 >> fam}' \
+> "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.short_id.fam"
 awk -v fam="$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.short_id.fam" \
     '{print "ID" NR FS "ID" NR FS $3 FS $4 FS $5 FS $6 >> fam}' \
     "$OUT_DIR/$IN_DATA_PREFIX.qc3.pruned.hapmap_merged.flipped.fam" 
