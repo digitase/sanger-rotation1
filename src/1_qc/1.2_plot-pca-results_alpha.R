@@ -13,9 +13,9 @@ library(plyr)
 args <- commandArgs(trailingOnly = TRUE)
 
 data <- read.table(paste(args[1],".evec",sep=""),h=F,skip=1)
-colnames(data) <- c("Sample","PC1","PC2","Population")
+colnames(data) <- c("Sample", paste0("PC", 1:(ncol(data)-2)), "Population")
 data$Population <- as.factor(data$Population)
-data$Population <- revalue(data$Population, c("3"="CEU", "4"="CHB", "5"="JPT", "6"="YRI"))
+data$Population <- revalue(data$Population, c("3"="CEU", "4"="CHB", "5"="JPT", "6"="YRI", "Control"="HIRD"))
 
 # group.colors <- c(JPT="PURPLE",CHB="PURPLE",YRI="GREEN",CEU="RED",BATCH="ORANGE",Case="BLUE",Control="BLACK")
 
@@ -23,8 +23,8 @@ data$Population <- revalue(data$Population, c("3"="CEU", "4"="CHB", "5"="JPT", "
 # ggsave(paste(args[1],".evec.pdf",sep=""), width=8,height=8) 
 
 pdf(paste(args[1],".evec.pdf",sep=""),width=8,height=8)
-    plot(data$PC1,data$PC2,col=data$Population)
+    plot(data$PC1,data$PC2,col=data$Population, xlab="PC1", ylab="PC2")
     abline(h=as.numeric(args[2]),lty=2)
-    legend("topright", legend=levels(data$Population), fill=1:length(levels(data$Population)), title="Populations")
+    legend("topright", legend=levels(data$Population), fill=1:length(levels(data$Population)), title="Populations", bg="white")
 dev.off()
 
