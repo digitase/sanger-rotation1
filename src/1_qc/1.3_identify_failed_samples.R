@@ -98,14 +98,25 @@ in.sexcheck.df$CHECKSEX.FAIL[in.sexcheck.df$IID == "333835_G08_UC755045"] <- T
 # Identify individuals with non-European ancestry
 #
 in.pca.df <- read.table.try(in.pca.file, skip = 1)
-colnames(in.pca.df) <- c("SAMPLE", "PC1", "PC2", "POP")
+colnames(in.pca.df) <- c("SAMPLE", paste0("PC", 1:(ncol(in.pca.df)-2)), "POP")
 
 # Unshorten sample IDs
 in.hapmap.fam.df <- read.table.try(in.hapmap.fam.file)
 
-stopifnot(nrow(in.pca.df) == nrow(in.hapmap.fam.df))
-in.pca.df$FID <- in.hapmap.fam.df$V1
-in.pca.df$IID <- in.hapmap.fam.df$V2
+# Assign original FID/IIDs
+#
+# Actually, not every hapmap sample will be included in the pca due to smartpca outlier removal
+# stopifnot(nrow(in.pca.df) == nrow(in.hapmap.fam.df))
+# in.pca.df$FID <- in.hapmap.fam.df$V1
+# in.pca.df$IID <- in.hapmap.fam.df$V2
+#
+# So subset just the samples that are left
+in.pca.df.indices <- unlist(Map(
+    function (x) as.numeric(sub("ID", "", strsplit(x, split=':', fixed=T)[[1]][1])),
+    in.pca.df$SAMPLE
+))
+in.pca.df$FID <- in.hapmap.fam.df$V1[in.pca.df.indices]
+in.pca.df$IID <- in.hapmap.fam.df$V2[in.pca.df.indices]
 
 # Identify failures based on PC2 coord
 in.pca.df$ANCESTRY.FAIL <- in.pca.df$PC2 < in.pc2.thresh
