@@ -16,6 +16,14 @@ out.het.failure.file <- commandArgs(T)[7]
 # out.pdf.file <- "output/coreex_gaibdc_usgwas_raw.qc2.pdf"
 # out.failure.file <- "output/coreex_gaibdc_usgwas_raw.qc2.txt"
 
+# in.imiss.file <- "/lustre/scratch119/realdata/mdt2/teams/anderson/users/bb9/workspace/phd/output/hird/genotype/1_qc/coreex_eQTLflu_20171204.gencall.smajor.impute_sex.qc3.missing_het.imiss"
+# in.het.file <- "/lustre/scratch119/realdata/mdt2/teams/anderson/users/bb9/workspace/phd/output/hird/genotype/1_qc/coreex_eQTLflu_20171204.gencall.smajor.impute_sex.qc3.missing_het.het"
+# in.imiss.thresh <- 0.01
+# in.het.thresh <- 3
+# out.pdf.file <- "/lustre/scratch119/realdata/mdt2/teams/anderson/users/bb9/workspace/phd/output/hird/genotype/1_qc/coreex_eQTLflu_20171204.gencall.smajor.impute_sex.qc3.missing_het.pdf"
+# out.imiss.failure.file <- "/lustre/scratch119/realdata/mdt2/teams/anderson/users/bb9/workspace/phd/output/hird/genotype/1_qc/coreex_eQTLflu_20171204.gencall.smajor.impute_sex.qc3.missing_het.sample_fail_imiss.txt"
+# out.het.failure.file <- "/lustre/scratch119/realdata/mdt2/teams/anderson/users/bb9/workspace/phd/output/hird/genotype/1_qc/coreex_eQTLflu_20171204.gencall.smajor.impute_sex.qc3.missing_het.sample_fail_het.txt"
+
 imiss.df <- read.table(in.imiss.file, header=T)
 het.df <- read.table(in.het.file, header=T)
 stopifnot(all(imiss.df$IID == het.df$IID))
@@ -27,6 +35,7 @@ het.rate.upperThresh <- mean(het.df$HET.RATE) + in.het.thresh*sd(het.df$HET.RATE
 het.rate.lowerThresh <- mean(het.df$HET.RATE) - in.het.thresh*sd(het.df$HET.RATE)
 
 pdf(out.pdf.file)
+
     # Inform choice of marker missingness threshold
     hist(log10(imiss.df$F_MISS), main="log10(marker missingness rate)")
     abline(v=log10(in.imiss.thresh), lty=2)
@@ -38,6 +47,7 @@ pdf(out.pdf.file)
         geom_hline(yintercept = het.rate.lowerThresh) +
         geom_hline(yintercept = het.rate.upperThresh) +
         scale_x_log10()
+
 dev.off()
 
 # Write lists of failures
