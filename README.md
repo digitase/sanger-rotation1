@@ -1,12 +1,15 @@
+# Understanding the genetic architecture of inflammatory bowel disease using genome-wide data across tens of thousands of individuals
 
-# Informatics rotation project for 1st rotation 2016-17
+### Informatics rotation project for 1st rotation (2016-17)
 
-## Project description:
+Repo for project-associated code.
 
-### Understanding the genetic architecture of inflammatory bowel disease using genome-wide data across tens of thousands of individuals
-#### Supervisors: Drs Carl Anderson and Jeffrey Barrett
-http://www.sanger.ac.uk/science/groups/anderson-group
-http://www.sanger.ac.uk/science/groups/barrett-team
+### Supervisors: Carl Anderson and Jeffrey Barrett
+
+- http://www.sanger.ac.uk/science/groups/anderson-group
+- http://www.sanger.ac.uk/science/groups/barrett-team
+
+## Project description
 
 Crohn’s disease and ulcerative colitis, the two common forms of inflammatory
 bowel disease (IBD), are chronic and debilitating diseases of the
@@ -39,10 +42,10 @@ computational expertise of the student and can be easily extended into a full
 PhD project with the aim of using high coverage whole genome sequence data to
 better understand the genetic architecture of IBD.
 
-### Misc.
+## Misc.
 
-src/
-    Scripts intended to be executed usually have chmod +x set.
-    Other scripts are helpers executed by other scripts.
-    Scripts with BSUB comment lines are intended to be bsub-ed.
+In `src/`:
 
+- Scripts intended to be executed usually have chmod +x set.
+- Other scripts are helpers executed by other scripts.
+- Scripts with BSUB comment lines are intended to be bsub-ed.
